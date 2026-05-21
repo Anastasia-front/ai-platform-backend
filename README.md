@@ -76,3 +76,10 @@ app/
 
 - The repository now includes a `.gitignore` file to exclude local environment, build artifacts, editor files, and sensitive config files.
 - If you use environment variables, keep them in `.env` files or other local files that are not checked into source control.
+
+Application security layer
+config.py → settings
+database.py → engine + session + Base + get_db
+models/ → Base import
+services/ → db dependency
+api/ → get_db dependency
