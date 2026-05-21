@@ -1,10 +1,11 @@
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import create_access_token
+from app.dependencies.auth import get_current_user
+from app.models.user import User
 from app.schemas.auth import (
     LoginRequest,
     RegisterRequest,
@@ -40,10 +41,9 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_me():
-    # temporary stub (we will fix in next step with JWT dependency)
-    return {
-        "id": 1,
-        "email": "user@example.com",
-        "created_at": datetime.now(timezone.utc),
-    }
+async def get_me(user: User = Depends(get_current_user)):
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        created_at=user.created_at,
+    )
