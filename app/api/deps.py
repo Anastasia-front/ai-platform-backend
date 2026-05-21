@@ -1,5 +1,7 @@
 from fastapi import Header, HTTPException, status
 
+from app.core.database import AsyncSessionLocal
+
 
 async def get_current_user(
     authorization: str | None = Header(default=None),
@@ -19,3 +21,9 @@ async def get_current_user(
         "id": 1,
         "email": "user@example.com",
     }
+
+
+
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session

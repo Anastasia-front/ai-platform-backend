@@ -3,6 +3,7 @@
 A lightweight FastAPI-based AI workflow automation platform for managing users, projects, chats, documents, workflows, and agent runs.
 
 ## Project structure
+
 ```
 app/
 ├── api/
@@ -50,6 +51,7 @@ app/
 │
 └── main.py
 ```
+
 ## Setup
 
 1. Create and activate the virtual environment:
