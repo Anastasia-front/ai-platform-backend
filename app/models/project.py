@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import DateTime, Integer, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -33,4 +33,22 @@ class Project(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
+    )
+
+    workflows = relationship(
+        "Workflow",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
+
+    chats = relationship(
+        "Chat",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
+
+    documents = relationship(
+        "Document",
+        back_populates="project",
+        cascade="all, delete-orphan",
     )

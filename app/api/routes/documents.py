@@ -1,32 +1,56 @@
-from datetime import datetime, timezone
+import os
 from typing import List
 
-from fastapi import APIRouter, File, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import get_db
+from app.dependencies.auth import get_current_user
+from app.models.document import Document
+from app.models.project import Project
 from app.schemas.document import DocumentResponse
 
 router = APIRouter()
 
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+
+# -------------------------------------------------
+# GET DOCUMENTS
+# -------------------------------------------------
 @router.get(
     "/projects/{project_id}/documents",
     response_model=List[DocumentResponse],
 )
 async def get_documents(
     project_id: int,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
 ):
-    return [
-        {
-            "id": 1,
-            "project_id": project_id,
-            "filename": "manual.pdf",
-            "filepath": "/uploads/manual.pdf",
-            "status": "indexed",
-            "created_at": datetime.now(timezone.utc),
-        }
-    ]
+    project_result = await db.execute(
+        select(Project).where(
+            Project.id == project_id,
+            Project.user_id == user.id,
+        )
+    )
+
+    project = project_result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    result = await db.execute(
+        select(Document).where(Document.project_id == project_id)
+    )
+
+    return result.scalars().all()
 
 
+# -------------------------------------------------
+# UPLOAD DOCUMENT
+# -------------------------------------------------
 @router.post(
     "/projects/{project_id}/documents",
     response_model=DocumentResponse,
@@ -35,12 +59,37 @@ async def get_documents(
 async def upload_document(
     project_id: int,
     file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
 ):
-    return {
-        "id": 1,
-        "project_id": project_id,
-        "filename": file.filename,
-        "filepath": f"/uploads/{file.filename}",
-        "status": "uploaded",
-        "created_at": datetime.now(timezone.utc),
-    }
+    # verify ownership
+    project_result = await db.execute(
+        select(Project).where(
+            Project.id == project_id,
+            Project.user_id == user.id,
+        )
+    )
+
+    project = project_result.scalar_one_or_none()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # save file locally
+    file_path = os.path.join(UPLOAD_DIR, file.filename)
+
+    with open(file_path, "wb") as f:
+        f.write(await file.read())
+
+    document = Document(
+        project_id=project_id,
+        filename=file.filename,
+        filepath=file_path,
+        status="uploaded",
+    )
+
+    db.add(document)
+    await db.commit()
+    await db.refresh(document)
+
+    return document

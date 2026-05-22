@@ -1,10 +1,10 @@
 from fastapi import Depends, HTTPException
-from jose import JWTError, jwt
+from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.security import ALGORITHM, SECRET_KEY, oauth2_scheme
+from app.core.security import decode_access_token, oauth2_scheme
 from app.models.user import User
 
 
@@ -14,8 +14,8 @@ async def get_current_user(
 ) -> User:
 
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = payload.get("sub")
+        payload = decode_access_token(token)
+        user_id = int(payload.get("sub"))
 
         if user_id is None:
             raise HTTPException(status_code=401, detail="Invalid token")
