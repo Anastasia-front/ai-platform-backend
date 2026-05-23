@@ -10,7 +10,7 @@ class MessageCreate(BaseModel):
 
 class MessageResponse(BaseModel):
     id: int
-    chat_session_id: int
+    chat_id: int
     role: Literal["user", "assistant", "system"]
     content: str
     created_at: datetime
