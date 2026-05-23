@@ -67,21 +67,6 @@ app/
    uvicorn app.main:app --reload
    ```
 
-## Notes
-
-- A `.gitignore` file is included to exclude local environment files, build artifacts, editor files, and sensitive configuration.
-- Keep environment variables in a local `.env` file or another file that is not checked into source control.
-
-### Application security layer
-
-- `config.py` → settings
-- `database.py` → engine + session + Base + `get_db`
-- `models/` → Base import
-- `services/` → DB dependency
-- `api/` → `get_db` dependency
-
----
-
 ## Commands & Workflow
 
 ### 1. Generate JWT secret key
@@ -306,3 +291,42 @@ When model changes:
 alembic revision --autogenerate -m "update"
 alembic upgrade head
 ```
+
+## Notes
+
+- A `.gitignore` file is included to exclude local environment files, build artifacts, editor files, and sensitive configuration.
+- Keep environment variables in a local `.env` file or another file that is not checked into source control.
+
+### Application security layer
+
+- `config.py` → settings
+- `database.py` → engine + session + Base + `get_db`
+- `models/` → Base import
+- `services/` → DB dependency
+- `api/` → `get_db` dependency
+
+### Architecture domain feature layered structure:
+
+```
+            Route
+              ↓
+            Service
+              ↓
+            Model
+              ↓
+            DB / ORM
+```
+
+- Route:
+  - HTTP concerns
+  - status codes
+  - auth dependencies
+
+- Service:
+  - business logic
+
+- Model:
+  - persistence
+
+- Schema:
+  - API contracts
