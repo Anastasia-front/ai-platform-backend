@@ -9,7 +9,11 @@ from app.core.database import Base
 class Chat(Base):
     __tablename__ = "chats"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
 
     project_id: Mapped[int] = mapped_column(
         ForeignKey("projects.id", ondelete="CASCADE"),
@@ -17,7 +21,10 @@ class Chat(Base):
         index=True,
     )
 
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -25,15 +32,13 @@ class Chat(Base):
         nullable=False,
     )
 
-    # relations (optional but important)
-    project = relationship("Project", back_populates="chats")
+    project = relationship(
+        "Project",
+        back_populates="chats",
+    )
 
-    from sqlalchemy.orm import relationship
-
-messages = relationship(
-    "Message",
-    back_populates="chat",
-    cascade="all, delete-orphan",
-)
-
-project = relationship("Project", back_populates="chats")
+    messages = relationship(
+        "Message",
+        back_populates="chat",
+        cascade="all, delete-orphan",
+    )
