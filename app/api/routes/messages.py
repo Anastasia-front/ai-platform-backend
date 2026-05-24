@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents import AGENTS
 from app.core.database import get_db
 from app.dependencies.auth import get_current_user
 from app.models.chat import Chat
@@ -114,8 +115,7 @@ async def create_message(
 
     db.add(user_msg)
 
-    await db.commit()
-    await db.refresh(user_msg)
+    await db.flush()
 
     # ---------------------------
     # AI MESSAGE
@@ -142,9 +142,13 @@ async def create_message(
         for message in history
     ]
 
+    agent = AGENTS["assistant"]
+
     ai_response = await ai_service.generate_chat_response(
-        ollama_messages
+        messages=ollama_messages,
+        system_prompt=agent.system_prompt,
     )
+
     assistant_msg = Message(        
         chat_id=chat_id,
         role="assistant",
