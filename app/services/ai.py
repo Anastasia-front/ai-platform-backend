@@ -11,9 +11,9 @@ class AIService:
         self.model = model
         self.base_url = base_url
 
-    async def generate_response(
+    async def generate_chat_response(
         self,
-        prompt: str,
+        messages: list[dict],
     ) -> str:
 
         async with httpx.AsyncClient() as client:
@@ -22,12 +22,7 @@ class AIService:
                 f"{self.base_url}/api/chat",
                 json={
                     "model": self.model,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": prompt,
-                        }
-                    ],
+                    "messages": messages,
                     "stream": False,
                 },
                 timeout=120,

@@ -361,3 +361,17 @@ Then move to:
 - llama3
 - mistral
 - qwen2.5
+
+### Chat Context (Memory Upgrade)
+
+```
+        user message
+              ↓
+        load chat history (DB)
+              ↓
+        send full context to Ollama
+              ↓
+        AI response
+              ↓
+        save both messages
+```

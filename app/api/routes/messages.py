@@ -114,7 +114,8 @@ async def create_message(
 
     db.add(user_msg)
 
-    await db.flush()
+    await db.commit()
+    await db.refresh(user_msg)
 
     # ---------------------------
     # AI MESSAGE
@@ -122,8 +123,27 @@ async def create_message(
 
     ai_service = AIService()
 
-    ai_response = await ai_service.generate_response(
-        payload.content
+    # --------------------------------
+    # LOAD CHAT HISTORY
+    # --------------------------------
+    result = await db.execute(
+        select(Message)
+        .where(Message.chat_id == chat_id)
+        .order_by(Message.created_at)
+    )
+
+    history = result.scalars().all()
+
+    ollama_messages = [
+        {
+            "role": message.role,
+            "content": message.content,
+        }
+        for message in history
+    ]
+
+    ai_response = await ai_service.generate_chat_response(
+        ollama_messages
     )
     assistant_msg = Message(        
         chat_id=chat_id,
@@ -135,7 +155,25 @@ async def create_message(
 
     await db.commit()
 
-    await db.refresh(user_msg)
     await db.refresh(assistant_msg)
 
     return [user_msg, assistant_msg]
+
+
+    # correct backend orchestration:
+    
+    # verify ownership
+    #     ↓
+    # save user message
+    #     ↓
+    # commit
+    #     ↓
+    # load history
+    #     ↓
+    # call AI
+    #     ↓
+    # save assistant message
+    #     ↓
+    # commit
+    #     ↓
+    # return both
