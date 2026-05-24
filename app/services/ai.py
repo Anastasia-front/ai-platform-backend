@@ -14,7 +14,21 @@ class AIService:
     async def generate_chat_response(
         self,
         messages: list[dict],
+        system_prompt: str | None = (
+            "You are a helpful AI assistant "
+            "inside an AI automation platform."
+        ),
     ) -> str:
+
+        system_message = {
+            "role": "system",
+            "content": system_prompt,
+        }
+
+        final_messages = [
+            system_message,
+            *messages,
+        ]
 
         async with httpx.AsyncClient() as client:
 
@@ -22,7 +36,7 @@ class AIService:
                 f"{self.base_url}/api/chat",
                 json={
                     "model": self.model,
-                    "messages": messages,
+                    "messages": final_messages,
                     "stream": False,
                 },
                 timeout=120,

@@ -375,3 +375,13 @@ Then move to:
               ↓
         save both messages
 ```
+
+## System Prompts + AI Context Architecture
+
+### Core AI backend concepts:
+
+- prompt engineering
+- context injection
+- AI orchestration
+- conversational control
+- instruction hierarchy
