@@ -26,6 +26,12 @@ class Chat(Base):
         nullable=False,
     )
 
+    agent_name: Mapped[str] = mapped_column(
+        String(50),
+        default="assistant",
+        nullable=False,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

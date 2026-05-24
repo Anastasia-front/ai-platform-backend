@@ -27,8 +27,9 @@ async def create_chat(
         return None
 
     chat = Chat(
+        project_id=project_id,
         title=payload.title,
-        project_id=project.id,
+        agent_name=payload.agent_name,
     )
 
     db.add(chat)

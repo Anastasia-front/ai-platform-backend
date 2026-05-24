@@ -142,7 +142,13 @@ async def create_message(
         for message in history
     ]
 
-    agent = AGENTS["assistant"]
+    agent = AGENTS.get(chat.agent_name)
+
+    if not agent:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid agent",
+        )
 
     ai_response = await ai_service.generate_chat_response(
         messages=ollama_messages,

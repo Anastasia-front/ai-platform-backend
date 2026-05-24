@@ -87,8 +87,9 @@ async def create_chat(
         )
 
     chat = Chat(
-        project_id=project.id,
+        project_id=project_id,
         title=payload.title,
+        agent_name=payload.agent_name,
     )
 
     db.add(chat)
