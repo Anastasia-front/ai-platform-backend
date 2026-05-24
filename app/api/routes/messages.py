@@ -13,6 +13,7 @@ from app.schemas.message import (
     MessageCreate,
     MessageResponse,
 )
+from app.services.ai import AIService
 
 router = APIRouter()
 
@@ -118,10 +119,16 @@ async def create_message(
     # ---------------------------
     # AI MESSAGE
     # ---------------------------
-    assistant_msg = Message(
+
+    ai_service = AIService()
+
+    ai_response = await ai_service.generate_response(
+        payload.content
+    )
+    assistant_msg = Message(        
         chat_id=chat_id,
         role="assistant",
-        content=f"AI response to: {payload.content}",
+        content=ai_response,
     )
 
     db.add(assistant_msg)

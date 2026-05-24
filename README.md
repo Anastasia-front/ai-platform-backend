@@ -340,3 +340,24 @@ User
  → sends Messages
  → gets chat history
 ```
+
+### AI architecture layer
+
+- route only handles HTTP
+- service handles DB + orchestration
+- AI service handles LLM provider
+
+gemma2:2b - the model is actually a good choice at this stage because:
+
+It’s lightweight (1.6 GB) → fast on local machines
+It’s sufficient for:
+
+- chat responses
+- basic assistant behavior
+- API wiring / architecture testing
+
+Then move to:
+
+- llama3
+- mistral
+- qwen2.5
