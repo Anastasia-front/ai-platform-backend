@@ -26,24 +26,20 @@ app.include_router(
 
 app.include_router(
     chats_router,
-    prefix="/chats",
     tags=["Chats"],
 )
 
 app.include_router(
     messages_router,
-    prefix="/messages",
     tags=["Messages"],
 )
 
 app.include_router(
     documents_router,
-    prefix="/documents",  
     tags=["Documents"],
 )
 
 app.include_router(
     workflows_router,
-    prefix="/workflows",
     tags=["Workflows"],
 )
