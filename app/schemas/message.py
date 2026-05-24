@@ -14,3 +14,6 @@ class MessageResponse(BaseModel):
     role: Literal["user", "assistant", "system"]
     content: str
     created_at: datetime
+
+    class Config:
+        from_attributes = True

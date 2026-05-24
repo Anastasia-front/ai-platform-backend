@@ -29,22 +29,30 @@ async def get_messages(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    # verify chat ownership via project
+    # verify chat ownership
     chat_result = await db.execute(
         select(Chat).where(Chat.id == chat_id)
     )
+
     chat = chat_result.scalar_one_or_none()
 
     if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Chat not found",
+        )
 
     project_result = await db.execute(
         select(Project).where(Project.id == chat.project_id)
     )
+
     project = project_result.scalar_one_or_none()
 
     if not project or project.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Not allowed")
+        raise HTTPException(
+            status_code=403,
+            detail="Not allowed",
+        )
 
     result = await db.execute(
         select(Message)
@@ -56,7 +64,7 @@ async def get_messages(
 
 
 # -------------------------------------------------
-# CREATE MESSAGE + SIMPLE AI RESPONSE
+# CREATE MESSAGE
 # -------------------------------------------------
 @router.post(
     "/chats/{chat_id}/messages",
@@ -73,18 +81,26 @@ async def create_message(
     chat_result = await db.execute(
         select(Chat).where(Chat.id == chat_id)
     )
+
     chat = chat_result.scalar_one_or_none()
 
     if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Chat not found",
+        )
 
     project_result = await db.execute(
         select(Project).where(Project.id == chat.project_id)
     )
+
     project = project_result.scalar_one_or_none()
 
     if not project or project.user_id != user.id:
-        raise HTTPException(status_code=403, detail="Not allowed")
+        raise HTTPException(
+            status_code=403,
+            detail="Not allowed",
+        )
 
     # ---------------------------
     # USER MESSAGE
@@ -96,10 +112,11 @@ async def create_message(
     )
 
     db.add(user_msg)
-    await db.flush()  # get ID before commit
+
+    await db.flush()
 
     # ---------------------------
-    # AI MESSAGE (placeholder logic)
+    # AI MESSAGE
     # ---------------------------
     assistant_msg = Message(
         chat_id=chat_id,
@@ -110,5 +127,8 @@ async def create_message(
     db.add(assistant_msg)
 
     await db.commit()
+
+    await db.refresh(user_msg)
+    await db.refresh(assistant_msg)
 
     return [user_msg, assistant_msg]
