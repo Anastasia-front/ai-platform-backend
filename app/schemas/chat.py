@@ -12,3 +12,6 @@ class ChatResponse(BaseModel):
     project_id: int
     title: str
     created_at: datetime
+
+    class Config:
+        from_attributes = True

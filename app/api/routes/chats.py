@@ -8,12 +8,15 @@ from app.core.database import get_db
 from app.dependencies.auth import get_current_user
 from app.models.chat import Chat
 from app.models.project import Project
+from app.models.user import User
 from app.schemas.chat import (
     ChatCreate,
     ChatResponse,
 )
 
-router = APIRouter()
+router = APIRouter(
+    tags=["Chats"],
+)
 
 
 # -------------------------------------------------
@@ -26,17 +29,17 @@ router = APIRouter()
 async def get_project_chats(
     project_id: int,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
     # ensure project belongs to user
-    project = await db.execute(
+    project_result = await db.execute(
         select(Project).where(
             Project.id == project_id,
             Project.user_id == user.id,
         )
     )
 
-    project = project.scalar_one_or_none()
+    project = project_result.scalar_one_or_none()
 
     if not project:
         raise HTTPException(
@@ -48,7 +51,9 @@ async def get_project_chats(
         select(Chat).where(Chat.project_id == project_id)
     )
 
-    return result.scalars().all()
+    chats = result.scalars().all()
+
+    return chats
 
 
 # -------------------------------------------------
@@ -63,17 +68,17 @@ async def create_chat(
     project_id: int,
     payload: ChatCreate,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
     # ensure project belongs to user
-    project = await db.execute(
+    project_result = await db.execute(
         select(Project).where(
             Project.id == project_id,
             Project.user_id == user.id,
         )
     )
 
-    project = project.scalar_one_or_none()
+    project = project_result.scalar_one_or_none()
 
     if not project:
         raise HTTPException(
@@ -82,11 +87,12 @@ async def create_chat(
         )
 
     chat = Chat(
-        project_id=project_id,
+        project_id=project.id,
         title=payload.title,
     )
 
     db.add(chat)
+
     await db.commit()
     await db.refresh(chat)
 
@@ -103,10 +109,15 @@ async def create_chat(
 async def get_chat(
     chat_id: int,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
     result = await db.execute(
-        select(Chat).where(Chat.id == chat_id)
+        select(Chat)
+        .join(Project)
+        .where(
+            Chat.id == chat_id,
+            Project.user_id == user.id,
+        )
     )
 
     chat = result.scalar_one_or_none()
@@ -117,17 +128,41 @@ async def get_chat(
             detail="Chat not found",
         )
 
-    # optional: enforce ownership via project
-    project = await db.execute(
-        select(Project).where(Project.id == chat.project_id)
+    return chat
+
+
+# -------------------------------------------------
+# DELETE CHAT
+# -------------------------------------------------
+@router.delete(
+    "/chats/{chat_id}",
+    status_code=status.HTTP_200_OK,
+)
+async def delete_chat(
+    chat_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Chat)
+        .join(Project)
+        .where(
+            Chat.id == chat_id,
+            Project.user_id == user.id,
+        )
     )
 
-    project = project.scalar_one_or_none()
+    chat = result.scalar_one_or_none()
 
-    if not project or project.user_id != user.id:
+    if not chat:
         raise HTTPException(
-            status_code=403,
-            detail="Not allowed",
+            status_code=404,
+            detail="Chat not found",
         )
 
-    return chat
+    await db.delete(chat)
+    await db.commit()
+
+    return {
+        "message": "Chat deleted",
+    }

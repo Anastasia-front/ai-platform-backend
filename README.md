@@ -330,3 +330,13 @@ alembic upgrade head
 
 - Schema:
   - API contracts
+
+### Chat and messages flow:
+
+```
+User
+ → owns Project
+ → creates Chat inside Project
+ → sends Messages
+ → gets chat history
+```
