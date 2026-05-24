@@ -385,3 +385,24 @@ Then move to:
 - AI orchestration
 - conversational control
 - instruction hierarchy
+
+### Core idea of an automation platform instead of just chat.
+
+```
+      User Request
+            ↓
+      Workflow
+            ↓
+      Multiple AI Steps
+            ↓
+      Structured Output
+```
+
+Example workflows:
+
+- blog generation
+- research pipeline
+- code review
+- summarization
+- SEO generation
+- email automation

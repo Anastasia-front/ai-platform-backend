@@ -1,6 +1,5 @@
 from typing import List
 
-from app.models.workflow import Workflow
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.dependencies.auth import get_current_user
 from app.models.project import Project
+from app.models.workflow import Workflow
 from app.schemas.workflow import (
     WorkflowCreate,
     WorkflowResponse,
@@ -28,14 +28,14 @@ async def get_workflows(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    # ensure project belongs to user
-    project = await db.execute(
+    project_result = await db.execute(
         select(Project).where(
             Project.id == project_id,
             Project.user_id == user.id,
         )
     )
-    project = project.scalar_one_or_none()
+
+    project = project_result.scalar_one_or_none()
 
     if not project:
         raise HTTPException(
@@ -64,15 +64,14 @@ async def create_workflow(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    # ensure project belongs to user
-    result = await db.execute(
+    project_result = await db.execute(
         select(Project).where(
             Project.id == project_id,
             Project.user_id == user.id,
         )
     )
 
-    project = result.scalar_one_or_none()
+    project = project_result.scalar_one_or_none()
 
     if not project:
         raise HTTPException(
@@ -91,3 +90,84 @@ async def create_workflow(
     await db.refresh(workflow)
 
     return workflow
+
+
+# -------------------------------------------------
+# GET SINGLE WORKFLOW
+# -------------------------------------------------
+@router.get(
+    "/workflows/{workflow_id}",
+    response_model=WorkflowResponse,
+)
+async def get_workflow(
+    workflow_id: int,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Workflow).where(Workflow.id == workflow_id)
+    )
+
+    workflow = result.scalar_one_or_none()
+
+    if not workflow:
+        raise HTTPException(
+            status_code=404,
+            detail="Workflow not found",
+        )
+
+    project_result = await db.execute(
+        select(Project).where(Project.id == workflow.project_id)
+    )
+
+    project = project_result.scalar_one_or_none()
+
+    if not project or project.user_id != user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Not allowed",
+        )
+
+    return workflow
+
+
+# -------------------------------------------------
+# DELETE WORKFLOW
+# -------------------------------------------------
+@router.delete(
+    "/workflows/{workflow_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_workflow(
+    workflow_id: int,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Workflow).where(Workflow.id == workflow_id)
+    )
+
+    workflow = result.scalar_one_or_none()
+
+    if not workflow:
+        raise HTTPException(
+            status_code=404,
+            detail="Workflow not found",
+        )
+
+    project_result = await db.execute(
+        select(Project).where(Project.id == workflow.project_id)
+    )
+
+    project = project_result.scalar_one_or_none()
+
+    if not project or project.user_id != user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Not allowed",
+        )
+
+    await db.delete(workflow)
+    await db.commit()
+
+    return None

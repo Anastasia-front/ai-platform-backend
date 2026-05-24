@@ -39,3 +39,7 @@ class Workflow(Base):
     )
 
     project = relationship("Project", back_populates="workflows")
+
+#     Later add:
+# workflow_steps
+# workflow_runs
