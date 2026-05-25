@@ -40,6 +40,12 @@ class Workflow(Base):
 
     project = relationship("Project", back_populates="workflows")
 
+    steps = relationship(
+    "WorkflowStep",
+    back_populates="workflow",
+    cascade="all, delete-orphan",
+    order_by="WorkflowStep.step_order",
+)
 #     Later add:
 # workflow_steps
 # workflow_runs
