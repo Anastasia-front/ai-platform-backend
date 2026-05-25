@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.workflow_run import WorkflowRun
+from app.models.workflow_run_event import WorkflowRunEvent
 from app.models.workflow_step import WorkflowStep
 from app.models.workflow_step_run import WorkflowStepRun
 from app.services.ai import AIService
@@ -41,11 +42,16 @@ class WorkflowService:
         for step in steps:
 
             if stream:
-                yield self._event("step_start", {
-                    "step_id": step.id,
-                    "name": step.name,
-                    "order": step.step_order,
-                })
+                yield await self._event(
+                    db=db,
+                    workflow_run_id=workflow_run.id,
+                    event_type="step_start",
+                    data={
+                        "step_id": step.id,
+                        "name": step.name,
+                        "order": step.step_order,
+                    },
+                )
 
             prompt = step.prompt_template
             prompt = prompt.replace("{{input}}", user_input)
@@ -182,7 +188,27 @@ class WorkflowService:
     # =========================================================
     # EVENT FORMATTER
     # =========================================================
-    def _event(self, event_type: str, data: dict) -> str:
+    async def _event(
+        self,
+        db: AsyncSession,
+        workflow_run_id: int,
+        event_type: str,
+        data: dict,
+    ) -> str:
+
+        # 1. persist event
+        db.add(
+            WorkflowRunEvent(
+                workflow_run_id=workflow_run_id,
+                event_type=event_type,
+                payload=data,
+            )
+        )
+
+        # IMPORTANT: flush so it is not lost during streaming
+        await db.flush()
+
+        # 2. stream event
         return f"data: {json.dumps({
             'type': event_type,
             'data': data

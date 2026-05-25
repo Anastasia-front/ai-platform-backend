@@ -5,7 +5,9 @@ from app.models.message import Message
 from app.models.project import Project
 from app.models.user import User
 from app.models.workflow import Workflow
+from app.models.workflow_run_event import WorkflowStepRun
 from app.models.workflow_step import WorkflowStep
+from app.models.workflow_step_run import WorkflowRunEvent
 
 __all__ = [
     "AgentRun",
@@ -15,5 +17,7 @@ __all__ = [
     "Project",
     "User",
     "Workflow",
-    "WorkflowStep"
+    "WorkflowStep",
+    "WorkflowStepRun",
+    "WorkflowRunEvent",
 ]
