@@ -19,9 +19,11 @@ class WorkflowService:
         db: AsyncSession,
         workflow_id: int,
         user_input: str,
+        max_retries: int = 3,
+        continue_on_error: bool = True,
     ) -> str:
 
-        # 1. load workflow steps
+        # 1. load steps
         result = await db.execute(
             select(WorkflowStep)
             .where(WorkflowStep.workflow_id == workflow_id)
@@ -29,7 +31,7 @@ class WorkflowService:
         )
         steps = result.scalars().all()
 
-        # 2. create workflow run
+        # 2. create run
         workflow_run = WorkflowRun(
             workflow_id=workflow_id,
             input=user_input,
@@ -49,62 +51,55 @@ class WorkflowService:
             prompt = prompt.replace("{{input}}", user_input)
             prompt = prompt.replace("{{previous_output}}", previous_output)
 
+            attempt = 0
+            success = False
+            ai_output = None
+            error_message = None
+
             start = time.time()
 
-            try:
-                # -------------------------
-                # AI CALL
-                # -------------------------
-                ai_output = await self.ai.generate_chat_response(
-                    messages=[
-                        {"role": "user", "content": prompt}
-                    ]
-                )
+            while attempt < max_retries and not success:
+                try:
+                    ai_output = await self.ai.generate_chat_response(
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+                    success = True
 
-                execution_time_ms = int((time.time() - start) * 1000)
+                except Exception as e:
+                    attempt += 1
+                    error_message = str(e)
 
-                step_run = WorkflowStepRun(
-                    workflow_run_id=workflow_run.id,
-                    workflow_step_id=step.id,
-                    step_order=step.step_order,
-                    input=prompt,
-                    output=ai_output,
-                    status="completed",
-                    execution_time_ms=execution_time_ms,
-                    retry_count=0,
-                    error_message=None,
-                )
+                    if attempt >= max_retries:
+                        if not continue_on_error:
+                            raise
 
-                previous_output = ai_output
-                final_output = ai_output
+            execution_time_ms = int((time.time() - start) * 1000)
 
-            except Exception as e:
+            step_run = WorkflowStepRun(
+                workflow_run_id=workflow_run.id,
+                workflow_step_id=step.id,
+                step_order=step.step_order,
+                input=prompt,
+                output=ai_output,
+                status="completed" if success else "failed",
+                execution_time_ms=execution_time_ms,
+                retry_count=attempt,
+                error_message=error_message,
+            )
 
-                execution_time_ms = int((time.time() - start) * 1000)
-
-                step_run = WorkflowStepRun(
-                    workflow_run_id=workflow_run.id,
-                    workflow_step_id=step.id,
-                    step_order=step.step_order,
-                    input=prompt,
-                    output=None,
-                    status="failed",
-                    execution_time_ms=execution_time_ms,
-                    retry_count=0,
-                    error_message=str(e),
-                )
-
-                # IMPORTANT: stop workflow on failure (simple mode)
-                workflow_run.status = "failed"
-                db.add(step_run)
-                await db.commit()
-
-                return f"Workflow failed at step {step.name}: {str(e)}"
-
-            # persist step run
             db.add(step_run)
 
-        # 4. finalize workflow run
+            # decide flow continuation
+            if success:
+                previous_output = ai_output
+                final_output = ai_output
+            else:
+                if not continue_on_error:
+                    workflow_run.status = "failed"
+                    await db.commit()
+                    raise Exception(f"Step failed: {step.name}")
+
+        # 4. finalize run
         workflow_run.output = final_output
         workflow_run.status = "completed"
 
