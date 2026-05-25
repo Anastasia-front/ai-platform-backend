@@ -406,3 +406,23 @@ Example workflows:
 - summarization
 - SEO generation
 - email automation
+
+### Backend infrastructure for now:
+
+```
+      Auth Layer
+            ↓
+      Ownership Layer
+            ↓
+      Domain Layer
+            ↓
+      Conversation Layer
+            ↓
+      Agent Layer
+            ↓
+      Workflow Layer
+            ↓
+      AI Service Layer
+            ↓
+      Ollama
+```

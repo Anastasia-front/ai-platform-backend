@@ -19,3 +19,6 @@ class WorkflowResponse(BaseModel):
         "failed",
     ]
     created_at: datetime
+
+    class Config:
+        from_attributes = True

@@ -43,3 +43,5 @@ class Workflow(Base):
 #     Later add:
 # workflow_steps
 # workflow_runs
+# last_run_at
+# run_count

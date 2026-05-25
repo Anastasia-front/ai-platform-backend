@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -12,6 +13,11 @@ from app.schemas.workflow import (
     WorkflowCreate,
     WorkflowResponse,
 )
+from app.schemas.workflow_run import (
+    WorkflowRunRequest,
+    WorkflowRunResponse,
+)
+from app.services.workflow import WorkflowService
 
 router = APIRouter()
 
@@ -131,9 +137,9 @@ async def get_workflow(
     return workflow
 
 
-# -------------------------------------------------
-# DELETE WORKFLOW
-# -------------------------------------------------
+    # -------------------------------------------------
+    # DELETE WORKFLOW
+    # -------------------------------------------------
 @router.delete(
     "/workflows/{workflow_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -171,3 +177,63 @@ async def delete_workflow(
     await db.commit()
 
     return None
+
+
+
+# -------------------------------------------------
+# EXECUTION ROUTE
+# -------------------------------------------------
+
+
+@router.post(
+    "/workflows/{workflow_id}/run",
+    response_model=WorkflowRunResponse,
+)
+async def run_workflow(
+    workflow_id: int,
+    payload: WorkflowRunRequest,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    # 1. load workflow
+    result = await db.execute(
+        select(Workflow).where(Workflow.id == workflow_id)
+    )
+
+    workflow = result.scalar_one_or_none()
+
+    if not workflow:
+        raise HTTPException(
+            status_code=404,
+            detail="Workflow not found",
+        )
+
+    # 2. ownership check
+    project_result = await db.execute(
+        select(Project).where(Project.id == workflow.project_id)
+    )
+
+    project = project_result.scalar_one_or_none()
+
+    if not project or project.user_id != user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Not allowed",
+        )
+
+    # 3. execute workflow
+    service = WorkflowService()
+
+    output = await service.run_workflow(
+        db=db,
+        workflow_id=workflow_id,
+        user_input=payload.input,
+    )
+
+    # 4. response
+    return WorkflowRunResponse(
+        workflow_id=workflow_id,
+        input=payload.input,
+        output=output,
+        created_at=datetime.now(timezone.utc),
+    )
