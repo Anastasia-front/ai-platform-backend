@@ -23,6 +23,8 @@ class WorkflowStepRun(Base):
         index=True,
     )
 
+    step_order: Mapped[int] = mapped_column(Integer, nullable=False)
+
     input: Mapped[str] = mapped_column(Text, nullable=False)
     output: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -31,6 +33,12 @@ class WorkflowStepRun(Base):
         default="completed",
         nullable=False,
     )
+
+    execution_time_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

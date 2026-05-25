@@ -1,3 +1,5 @@
+import time
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,28 +46,63 @@ class WorkflowService:
         for step in steps:
 
             prompt = step.prompt_template
-
             prompt = prompt.replace("{{input}}", user_input)
             prompt = prompt.replace("{{previous_output}}", previous_output)
 
-            ai_output = await self.ai.generate_chat_response(
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
-            )
+            start = time.time()
 
-            step_run = WorkflowStepRun(
-                workflow_run_id=workflow_run.id,
-                workflow_step_id=step.id,
-                input=prompt,
-                output=ai_output,
-                status="completed",
-            )
+            try:
+                # -------------------------
+                # AI CALL
+                # -------------------------
+                ai_output = await self.ai.generate_chat_response(
+                    messages=[
+                        {"role": "user", "content": prompt}
+                    ]
+                )
 
+                execution_time_ms = int((time.time() - start) * 1000)
+
+                step_run = WorkflowStepRun(
+                    workflow_run_id=workflow_run.id,
+                    workflow_step_id=step.id,
+                    step_order=step.step_order,
+                    input=prompt,
+                    output=ai_output,
+                    status="completed",
+                    execution_time_ms=execution_time_ms,
+                    retry_count=0,
+                    error_message=None,
+                )
+
+                previous_output = ai_output
+                final_output = ai_output
+
+            except Exception as e:
+
+                execution_time_ms = int((time.time() - start) * 1000)
+
+                step_run = WorkflowStepRun(
+                    workflow_run_id=workflow_run.id,
+                    workflow_step_id=step.id,
+                    step_order=step.step_order,
+                    input=prompt,
+                    output=None,
+                    status="failed",
+                    execution_time_ms=execution_time_ms,
+                    retry_count=0,
+                    error_message=str(e),
+                )
+
+                # IMPORTANT: stop workflow on failure (simple mode)
+                workflow_run.status = "failed"
+                db.add(step_run)
+                await db.commit()
+
+                return f"Workflow failed at step {step.name}: {str(e)}"
+
+            # persist step run
             db.add(step_run)
-
-            previous_output = ai_output
-            final_output = ai_output
 
         # 4. finalize workflow run
         workflow_run.output = final_output
