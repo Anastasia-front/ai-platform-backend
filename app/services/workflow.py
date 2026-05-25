@@ -183,7 +183,7 @@ class WorkflowService:
     # EVENT FORMATTER
     # =========================================================
     def _event(self, event_type: str, data: dict) -> str:
-        return json.dumps({
-            "type": event_type,
-            "data": data,
-        }) + "\n"
+        return f"data: {json.dumps({
+            'type': event_type,
+            'data': data
+        })}\n\n"
