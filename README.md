@@ -449,3 +449,35 @@ Example workflows:
             Step 2 → Create outline
             Step 3 → Write final article
 ```
+
+### Streaming execution design
+
+```
+      WorkflowService
+            ↓
+      step-by-step execution
+            ↓
+      stream progress events to frontend
+```
+
+Frontend behavior:
+
+- show live step progress
+- render execution timeline
+- debug workflow runs in real-time
+- build “agent execution UI
+
+The clean architecture separation:
+
+- workflows → definition (CRUD, metadata, steps structure)
+- workflow_steps → step configuration (templates, order, prompts)
+- workflow_runs → execution layer (runtime, logs, streaming, results)
+  - run_workflow() → core engine (no streaming)
+  - run_workflow_stream() → wraps core engine and yields events
+
+```
+      - Workflows = Blueprint
+      - Steps = Instructions
+      - WorkflowRuns = Execution Engine
+      - Streaming = Runtime telemetry
+```

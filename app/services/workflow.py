@@ -1,3 +1,4 @@
+import json
 import time
 
 from sqlalchemy import select
@@ -10,42 +11,41 @@ from app.services.ai import AIService
 
 
 class WorkflowService:
-
     def __init__(self):
         self.ai = AIService()
 
-    async def run_workflow(
+    # =========================================================
+    # CORE EXECUTION ENGINE (shared by sync + streaming)
+    # =========================================================
+    async def _execute_steps(
         self,
         db: AsyncSession,
+        workflow_run: WorkflowRun,
         workflow_id: int,
         user_input: str,
         max_retries: int = 3,
         continue_on_error: bool = True,
-    ) -> str:
-
-        # 1. load steps
+        stream: bool = False,
+    ):
         result = await db.execute(
             select(WorkflowStep)
             .where(WorkflowStep.workflow_id == workflow_id)
             .order_by(WorkflowStep.step_order)
         )
+
         steps = result.scalars().all()
-
-        # 2. create run
-        workflow_run = WorkflowRun(
-            workflow_id=workflow_id,
-            input=user_input,
-            status="running",
-        )
-
-        db.add(workflow_run)
-        await db.flush()
 
         previous_output = user_input
         final_output = None
 
-        # 3. execute steps
         for step in steps:
+
+            if stream:
+                yield self._event("step_start", {
+                    "step_id": step.id,
+                    "name": step.name,
+                    "order": step.step_order,
+                })
 
             prompt = step.prompt_template
             prompt = prompt.replace("{{input}}", user_input)
@@ -69,9 +69,8 @@ class WorkflowService:
                     attempt += 1
                     error_message = str(e)
 
-                    if attempt >= max_retries:
-                        if not continue_on_error:
-                            raise
+                    if attempt >= max_retries and not continue_on_error:
+                        raise
 
             execution_time_ms = int((time.time() - start) * 1000)
 
@@ -89,7 +88,6 @@ class WorkflowService:
 
             db.add(step_run)
 
-            # decide flow continuation
             if success:
                 previous_output = ai_output
                 final_output = ai_output
@@ -99,10 +97,93 @@ class WorkflowService:
                     await db.commit()
                     raise Exception(f"Step failed: {step.name}")
 
-        # 4. finalize run
+            if stream:
+                yield self._event("step_done" if success else "step_error", {
+                    "step_id": step.id,
+                    "output": ai_output,
+                    "error": error_message,
+                    "execution_time_ms": execution_time_ms,
+                })
+
         workflow_run.output = final_output
         workflow_run.status = "completed"
 
         await db.commit()
 
+        if stream:
+            yield self._event("workflow_done", {
+                "output": final_output
+            })
+
         return final_output
+
+    # =========================================================
+    # NORMAL EXECUTION (non-stream)
+    # =========================================================
+    async def run_workflow(
+        self,
+        db: AsyncSession,
+        workflow_id: int,
+        user_input: str,
+        max_retries: int = 3,
+        continue_on_error: bool = True,
+    ) -> str:
+
+        workflow_run = WorkflowRun(
+            workflow_id=workflow_id,
+            input=user_input,
+            status="running",
+        )
+
+        db.add(workflow_run)
+        await db.flush()
+
+        return await self._execute_steps(
+            db=db,
+            workflow_run=workflow_run,
+            workflow_id=workflow_id,
+            user_input=user_input,
+            max_retries=max_retries,
+            continue_on_error=continue_on_error,
+            stream=False,
+        )
+
+    # =========================================================
+    # STREAMING EXECUTION (SSE)
+    # =========================================================
+    async def run_workflow_stream(
+        self,
+        db: AsyncSession,
+        workflow_id: int,
+        user_input: str,
+        max_retries: int = 3,
+        continue_on_error: bool = True,
+    ):
+        workflow_run = WorkflowRun(
+            workflow_id=workflow_id,
+            input=user_input,
+            status="running",
+        )
+
+        db.add(workflow_run)
+        await db.flush()
+
+        async for event in self._execute_steps(
+            db=db,
+            workflow_run=workflow_run,
+            workflow_id=workflow_id,
+            user_input=user_input,
+            max_retries=max_retries,
+            continue_on_error=continue_on_error,
+            stream=True,
+        ):
+            yield event
+
+    # =========================================================
+    # EVENT FORMATTER
+    # =========================================================
+    def _event(self, event_type: str, data: dict) -> str:
+        return json.dumps({
+            "type": event_type,
+            "data": data,
+        }) + "\n"
