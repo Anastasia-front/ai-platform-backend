@@ -7,7 +7,7 @@ A lightweight FastAPI-based AI workflow automation platform for managing users, 
 ```text
 app/
 ├── api/
-│   ├── deps.py
+│   ├── router.py
 │   └── routes/
 │       ├── auth.py
 │       ├── projects.py
@@ -425,4 +425,27 @@ Example workflows:
       AI Service Layer
             ↓
       Ollama
+```
+
+### Workflow Steps Engine
+
+```
+      Goal:
+
+            Workflow
+              ↓
+            Step 1
+            Step 2
+            Step 3
+              ↓
+            Final output
+
+      Example:
+
+            Input:
+            "Write article about FastAPI"
+
+            Step 1 → Research topic
+            Step 2 → Create outline
+            Step 3 → Write final article
 ```
