@@ -6,13 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.dependencies.auth import get_current_user
-from app.models.project import Project
-from app.models.workflow import Workflow
-from app.models.workflow_step import WorkflowStep
-from app.schemas.workflow_step import (
-    WorkflowStepCreate,
-    WorkflowStepResponse,
-)
+from app.models import Project, Workflow, WorkflowStep
+from app.schemas import WorkflowStepCreate, WorkflowStepResponse
 
 router = APIRouter()
 

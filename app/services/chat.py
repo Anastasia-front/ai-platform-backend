@@ -1,10 +1,8 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.chat import Chat
-from app.models.project import Project
-from app.models.user import User
-from app.schemas.chat import ChatCreate
+from app.models import Chat, Project, User
+from app.schemas import ChatCreate
 
 
 async def create_chat(

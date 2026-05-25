@@ -4,11 +4,8 @@ import time
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.workflow_run import WorkflowRun
-from app.models.workflow_run_event import WorkflowRunEvent
-from app.models.workflow_step import WorkflowStep
-from app.models.workflow_step_run import WorkflowStepRun
-from app.services.ai import AIService
+from app.models import WorkflowRun, WorkflowRunEvent, WorkflowStep, WorkflowStepRun
+from app.services import AIService
 
 
 class WorkflowService:

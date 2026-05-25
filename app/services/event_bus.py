@@ -2,7 +2,7 @@ import json
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.workflow_run_event import WorkflowRunEvent
+from app.models import WorkflowRunEvent
 
 
 class EventBus:

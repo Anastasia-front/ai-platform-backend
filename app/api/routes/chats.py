@@ -6,13 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.dependencies.auth import get_current_user
-from app.models.chat import Chat
-from app.models.project import Project
-from app.models.user import User
-from app.schemas.chat import (
-    ChatCreate,
-    ChatResponse,
-)
+from app.models import Chat, Project, User
+from app.schemas import ChatCreate, ChatResponse
 
 router = APIRouter(
     tags=["Chats"],

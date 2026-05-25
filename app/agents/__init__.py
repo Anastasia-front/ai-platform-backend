@@ -1,6 +1,6 @@
-from app.agents.assistant import AssistantAgent
-from app.agents.coding import CodingAgent
-from app.agents.research import ResearchAgent
+from .assistant import AssistantAgent
+from .coding import CodingAgent
+from .research import ResearchAgent
 
 AGENTS = {
     "assistant": AssistantAgent(),

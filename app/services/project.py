@@ -1,9 +1,8 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.project import Project
-from app.models.user import User
-from app.schemas.project import ProjectCreate
+from app.models import Project, User
+from app.schemas import ProjectCreate
 
 
 async def create_project(

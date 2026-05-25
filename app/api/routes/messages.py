@@ -7,14 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agents import AGENTS
 from app.core.database import get_db
 from app.dependencies.auth import get_current_user
-from app.models.chat import Chat
-from app.models.message import Message
-from app.models.project import Project
-from app.schemas.message import (
-    MessageCreate,
-    MessageResponse,
-)
-from app.services.ai import AIService
+from app.models import Chat, Message, Project
+from app.schemas import MessageCreate, MessageResponse
+from app.services import AIService
 
 router = APIRouter()
 

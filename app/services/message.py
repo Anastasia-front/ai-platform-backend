@@ -2,11 +2,8 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.chat import Chat
-from app.models.message import Message
-from app.models.project import Project
-from app.models.user import User
-from app.schemas.message import MessageCreate
+from app.models import Chat, Message, Project, User
+from app.schemas import MessageCreate
 
 
 # -------------------------------------------------

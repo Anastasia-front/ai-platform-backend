@@ -5,12 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.dependencies.auth import get_current_user
-from app.models.agent_run import AgentRun
-from app.models.workflow import Workflow
-from app.schemas.agent_run import (
-    AgentRunCreate,
-    AgentRunResponse,
-)
+from app.models import AgentRun, Workflow
+from app.schemas import AgentRunCreate, AgentRunResponse
 
 router = APIRouter()
 

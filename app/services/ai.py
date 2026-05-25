@@ -1,12 +1,13 @@
 import httpx
+from app.core.config import settings
 
 
 class AIService:
     def __init__(
         self,
-        model: str = "gemma2:2b",
-        fallback_model: str = "gemma2:2b",
-        base_url: str = "http://localhost:11434",
+        model: str = settings.OLLAMA_MODEL,
+        fallback_model: str = settings.OLLAMA_FALLBACK_MODEL,
+        base_url: str = settings.OLLAMA_BASE_URL,
     ):
         self.model = model
         self.fallback_model = fallback_model

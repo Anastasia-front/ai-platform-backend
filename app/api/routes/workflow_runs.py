@@ -4,8 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.dependencies.auth import get_current_user
-from app.schemas.workflow_run import WorkflowRunRequest, WorkflowRunResponse
-from app.services.workflow import WorkflowService
+from app.schemas import WorkflowRunRequest, WorkflowRunResponse
+from app.services import WorkflowService
 
 router = APIRouter()
 
