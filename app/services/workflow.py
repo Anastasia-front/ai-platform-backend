@@ -1,8 +1,9 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.workflow import Workflow
+from app.models.workflow_run import WorkflowRun
 from app.models.workflow_step import WorkflowStep
+from app.models.workflow_step_run import WorkflowStepRun
 from app.services.ai import AIService
 
 
@@ -18,58 +19,58 @@ class WorkflowService:
         user_input: str,
     ) -> str:
 
-        # load workflow
-        workflow_result = await db.execute(
-            select(Workflow).where(
-                Workflow.id == workflow_id
-            )
-        )
-
-        workflow = workflow_result.scalar_one_or_none()
-
-        if not workflow:
-            raise ValueError("Workflow not found")
-
-        # load ordered steps
-        steps_result = await db.execute(
+        # 1. load workflow steps
+        result = await db.execute(
             select(WorkflowStep)
             .where(WorkflowStep.workflow_id == workflow_id)
             .order_by(WorkflowStep.step_order)
         )
+        steps = result.scalars().all()
 
-        steps = steps_result.scalars().all()
+        # 2. create workflow run
+        workflow_run = WorkflowRun(
+            workflow_id=workflow_id,
+            input=user_input,
+            status="running",
+        )
 
-        # fallback if no steps
-        if not steps:
-            return await self.ai.generate_chat_response(
-                messages=[
-                    {
-                        "role": "user",
-                        "content": user_input,
-                    }
-                ]
-            )
+        db.add(workflow_run)
+        await db.flush()
 
         previous_output = user_input
+        final_output = None
 
+        # 3. execute steps
         for step in steps:
 
-            prompt = (
-                step.prompt_template
-                .replace("{{input}}", user_input)
-                .replace(
-                    "{{previous_output}}",
-                    previous_output,
-                )
-            )
+            prompt = step.prompt_template
 
-            previous_output = await self.ai.generate_chat_response(
+            prompt = prompt.replace("{{input}}", user_input)
+            prompt = prompt.replace("{{previous_output}}", previous_output)
+
+            ai_output = await self.ai.generate_chat_response(
                 messages=[
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    }
+                    {"role": "user", "content": prompt}
                 ]
             )
 
-        return previous_output
+            step_run = WorkflowStepRun(
+                workflow_run_id=workflow_run.id,
+                workflow_step_id=step.id,
+                input=prompt,
+                output=ai_output,
+                status="completed",
+            )
+
+            db.add(step_run)
+
+            previous_output = ai_output
+            final_output = ai_output
+
+        # 4. finalize workflow run
+        workflow_run.output = final_output
+        workflow_run.status = "completed"
+
+        await db.commit()
+
+        return final_output
