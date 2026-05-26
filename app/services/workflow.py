@@ -4,7 +4,12 @@ import time
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import WorkflowRun, WorkflowRunEvent, WorkflowStep, WorkflowStepRun
+from app.models import (
+    WorkflowRun,
+    WorkflowRunEvent,
+    WorkflowStep,
+    WorkflowStepRun,
+)
 from app.services import AIService
 
 
@@ -67,9 +72,9 @@ class WorkflowService:
 
         for step in steps:
 
-            # -------------------------------------
+            # =================================================
             # STEP START
-            # -------------------------------------
+            # =================================================
             yield await self._emit_event(
                 db=db,
                 workflow_run_id=workflow_run.id,
@@ -82,6 +87,7 @@ class WorkflowService:
             )
 
             prompt = step.prompt_template
+
             prompt = prompt.replace(
                 "{{input}}",
                 user_input,
@@ -99,9 +105,9 @@ class WorkflowService:
 
             start = time.time()
 
-            # -------------------------------------
+            # =================================================
             # RETRY LOOP
-            # -------------------------------------
+            # =================================================
             while attempt < max_retries and not success:
 
                 try:
@@ -145,9 +151,9 @@ class WorkflowService:
                 (time.time() - start) * 1000
             )
 
-            # -------------------------------------
+            # =================================================
             # STEP RUN PERSISTENCE
-            # -------------------------------------
+            # =================================================
             step_run = WorkflowStepRun(
                 workflow_run_id=workflow_run.id,
                 workflow_step_id=step.id,
@@ -166,9 +172,11 @@ class WorkflowService:
 
             db.add(step_run)
 
-            # -------------------------------------
+            await db.flush()
+
+            # =================================================
             # STEP SUCCESS
-            # -------------------------------------
+            # =================================================
             if success:
 
                 previous_output = ai_output
@@ -185,9 +193,9 @@ class WorkflowService:
                     },
                 )
 
-            # -------------------------------------
+            # =================================================
             # STEP FAILURE
-            # -------------------------------------
+            # =================================================
             else:
 
                 yield await self._emit_event(
@@ -213,7 +221,7 @@ class WorkflowService:
         # =====================================================
         # FINALIZE WORKFLOW
         # =====================================================
-        workflow_run.output = final_output
+        workflow_run.output = final_output or ""
         workflow_run.status = "completed"
 
         await db.commit()
@@ -261,9 +269,10 @@ class WorkflowService:
         ):
 
             # parse workflow_done event
-            if "workflow_done" in event:
+            if "event: workflow_done" in event:
 
                 data_line = event.split("\n")[1]
+
                 json_data = data_line.replace(
                     "data: ",
                     "",
@@ -271,9 +280,9 @@ class WorkflowService:
 
                 payload = json.loads(json_data)
 
-                final_output = payload["output"]
+                final_output = payload.get("output")
 
-        return final_output
+        return final_output or ""
 
     # =========================================================
     # STREAMING EXECUTION
