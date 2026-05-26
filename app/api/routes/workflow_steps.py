@@ -142,20 +142,19 @@ async def create_workflow_step(
 # DELETE WORKFLOW STEP
 # -------------------------------------------------
 @router.delete(
-    "/workflow-steps/{step_id}",
+    "/workflows/{workflow_id}/steps/{step_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_workflow_step(
+    workflow_id: int,
     step_id: int,
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    # --------------------------------
-    # LOAD STEP
-    # --------------------------------
     result = await db.execute(
         select(WorkflowStep).where(
-            WorkflowStep.id == step_id
+            WorkflowStep.id == step_id,
+            WorkflowStep.workflow_id == workflow_id,
         )
     )
 
@@ -167,45 +166,7 @@ async def delete_workflow_step(
             detail="Workflow step not found",
         )
 
-    # --------------------------------
-    # LOAD WORKFLOW
-    # --------------------------------
-    workflow_result = await db.execute(
-        select(Workflow).where(
-            Workflow.id == step.workflow_id
-        )
-    )
-
-    workflow = workflow_result.scalar_one_or_none()
-
-    if not workflow:
-        raise HTTPException(
-            status_code=404,
-            detail="Workflow not found",
-        )
-
-    # --------------------------------
-    # VERIFY OWNERSHIP
-    # --------------------------------
-    project_result = await db.execute(
-        select(Project).where(
-            Project.id == workflow.project_id
-        )
-    )
-
-    project = project_result.scalar_one_or_none()
-
-    if not project or project.user_id != user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Not allowed",
-        )
-
-    # --------------------------------
-    # DELETE STEP
-    # --------------------------------
     await db.delete(step)
-
     await db.commit()
 
     return None
