@@ -2,50 +2,6 @@
 
 A lightweight FastAPI-based AI workflow automation platform for managing users, projects, chats, documents, workflows, and agent runs.
 
-## Project structure
-
-```text
-app/
-├── api/
-│   ├── router.py
-│   └── routes/
-│       ├── auth.py
-│       ├── projects.py
-│       ├── chats.py
-│       ├── messages.py
-│       ├── documents.py
-│       └── workflows.py
-├── core/
-│   ├── config.py
-│   ├── security.py
-│   └── database.py
-├── models/
-│   ├── user.py
-│   ├── project.py
-│   ├── chat.py
-│   ├── message.py
-│   ├── document.py
-│   └── workflow.py
-├── schemas/
-│   ├── auth.py
-│   ├── project.py
-│   ├── chat.py
-│   ├── message.py
-│   ├── document.py
-│   └── workflow.py
-├── services/
-│   ├── auth_service.py
-│   ├── ai_service.py
-│   ├── chat_service.py
-│   ├── document_service.py
-│   └── workflow_service.py
-├── repositories/
-│   ├── project_repository.py
-│   ├── chat_repository.py
-│   └── document_repository.py
-└── main.py
-```
-
 ## Setup
 
 1. Create and activate the virtual environment:
@@ -145,7 +101,7 @@ docker ps
 Open Postgres CLI:
 
 ```bash
-docker exec -it ai-platform-postgres psql -U postgres
+docker exec -it ai-platform-postgres psql -U postgres -d ai_platform
 ```
 
 Inside psql:
@@ -480,4 +436,263 @@ The clean architecture separation:
       - Steps = Instructions
       - WorkflowRuns = Execution Engine
       - Streaming = Runtime telemetry
+```
+
+## Workflow engine full testing guide
+
+This guide validates the full workflow execution pipeline:
+
+- Workflow Runs
+- Workflow Step Runs (execution persistence)
+- Workflow Run Events (event bus)
+- Retry logic
+- Streaming (SSE)
+- Error handling
+
+1. Preconditions
+
+```
+1.1 Database must contain:
+                  SELECT * FROM workflows;
+                  SELECT * FROM workflow_steps;
+
+Expected:
+
+                  At least 1 workflow
+                  At least 2–3 steps per workflow
+
+Example:
+
+                  workflow_id = 2
+                  steps:
+                  1 → research
+                  2 → summarize
+                  3 → final output
+
+1.2 Tables must exist
+                  \dt
+
+You must see:
+
+                  workflow_runs
+                  workflow_step_runs
+                  workflow_run_events
+
+If missing → run migrations.
+```
+
+2. Test NON-STREAM workflow execution
+
+```
+2.1 Run workflow
+
+Use API:
+                  POST /workflows/{workflow_id}/run
+
+Example:
+                  {
+                  "input": "How to test workflow system"
+                  }
+
+2.2 Expected API response
+
+                  {
+                  "workflow_id": 2,
+                  "input": "...",
+                  "output": "final AI result",
+                  "status": "completed"
+                  }
+
+2.3 Verify workflow_runs table
+
+                  SELECT * FROM workflow_runs ORDER BY id DESC;
+
+Expected:
+
+                  New row inserted
+                  output NOT NULL
+                  status = completed
+
+2.4 Verify workflow_step_runs table
+
+                  SELECT * FROM workflow_step_runs ORDER BY id DESC;
+
+Expected:
+                  field	expected
+                  workflow_run_id	matches run
+                  step_order	1..N
+                  input	prompt with injected variables
+                  output	AI response
+                  status	completed
+                  execution_time_ms	> 0
+                  retry_count	>= 0
+
+If empty → step execution is not running.
+
+2.5 Verify event log table
+
+                  SELECT * FROM workflow_run_events ORDER BY id DESC;
+
+Expected events:
+
+                  step_start
+                  step_done
+                  workflow_done
+
+Each row should contain:
+
+                  workflow_run_id
+                  event_type
+                  payload JSON
+```
+
+3. Test RETRY logic
+
+```
+3.1 Force failure (temporary test)
+
+Modify AIService to temporarily fail:
+raise Exception("TEST FAILURE")
+
+3.2 Run workflow again
+
+Expected:
+
+                  retry_count increases (1–3)
+                  multiple retry events appear:
+                  SELECT * FROM workflow_run_events WHERE event_type = 'retry';
+
+3.3 Expected behavior
+
+                  step_run still created
+                  status = failed (if max retries exceeded)
+                  error_message populated
+```
+
+4. Test STREAMING (SSE)
+
+```
+4.1 Run streaming endpoint
+
+                  POST /workflows/{workflow_id}/stream
+
+4.2 Use curl to verify SSE
+
+                  curl -N http://localhost:8000/workflows/2/stream \
+                  -H "Content-Type: application/json" \
+                  -d '{"input":"test streaming workflow"}'
+
+4.3 Expected SSE format
+
+                  event: step_start
+                  data: {...}
+
+                  event: step_done
+                  data: {...}
+
+                  event: workflow_done
+                  data: {...}
+
+4.4 Verify DB events still written
+
+                  SELECT * FROM workflow_run_events;
+
+Expected:
+
+                  step_start
+                  step_done
+                  retry (if any)
+                  workflow_done
+```
+
+5. Validate FULL PIPELINE CONSISTENCY
+
+```
+After execution:
+
+5.1 workflow_runs
+                  SELECT id, status, output FROM workflow_runs;
+
+Expected:
+
+                  status = completed
+                  output NOT NULL
+
+5.2 workflow_step_runs
+
+                  SELECT step_order, status, execution_time_ms FROM workflow_step_runs;
+
+Expected:
+
+                  All steps executed in correct order
+                  execution_time_ms populated
+                  no missing steps
+
+5.3 workflow_run_events
+
+                  SELECT event_type, COUNT(*)
+                  FROM workflow_run_events
+                  GROUP BY event_type;
+
+Expected:
+
+                  step_start > 0
+                  step_done > 0
+                  workflow_done = 1
+```
+
+6. Debug checklist (if something is broken)
+
+```
+6.1 No step_runs created
+
+Check:
+
+                  _execute_steps() is actually called
+                  db.add(step_run) executed
+                  await db.commit() reached
+                  no silent exception before commit
+
+6.2 No events created
+
+Check:
+
+                  _emit_event() is called
+                  await db.flush() not failing
+                  workflow_run.id exists (flush before execution)
+
+6.3 workflow_runs created but empty output
+
+Likely causes:
+
+                  AI service returned None
+                  exception swallowed in retry loop
+                  final_output never assigned
+
+6.4 SQL table missing errors
+
+Run migrations:
+
+                  alembic upgrade head
+
+or recreate DB schema.
+```
+
+7. Success Criteria (FULL SYSTEM READY)
+
+```
+System is correct if ALL are true:
+
+                  Execution
+                  workflow_runs created
+                  workflow_steps executed in order
+                  workflow_step_runs populated
+                  Reliability
+                  retry logic works
+                  errors stored in DB
+                  Observability
+                  workflow_run_events populated
+                  SSE stream emits events correctly
+                  Output
+                  workflow_run.output is never NULL
 ```
