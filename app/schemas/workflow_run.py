@@ -10,5 +10,5 @@ class WorkflowRunRequest(BaseModel):
 class WorkflowRunResponse(BaseModel):
     workflow_id: int
     input: str
-    output: str
+    output: str | None
     created_at: datetime
