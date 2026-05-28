@@ -1,5 +1,7 @@
+import asyncio
 import json
 import time
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,7 +47,189 @@ class WorkflowService:
         )
 
     # =========================================================
-    # INTERNAL DAG EXECUTION ENGINE
+    # DAG UTILITIES
+    # =========================================================
+
+    def _detect_cycles(self, steps: list[WorkflowStep]):
+        graph = {s.id: set(s.depends_on or []) for s in steps}
+
+        visited = set()
+        stack = set()
+
+        def dfs(node):
+            if node in stack:
+                raise Exception("Cycle detected in workflow DAG")
+            if node in visited:
+                return
+
+            visited.add(node)
+            stack.add(node)
+
+            for dep in graph.get(node, []):
+                dfs(dep)
+
+            stack.remove(node)
+
+        for node in graph:
+            dfs(node)
+
+    def _evaluate_condition(
+        self,
+        condition: str | None,
+        completed_outputs: dict[int, Any],
+        user_input: str,
+    ) -> bool:
+        """
+        SAFE SIMPLE CONDITION ENGINE (replace later with AST sandbox)
+        """
+        if not condition:
+            return True
+
+        context = {
+            "input": user_input,
+            "outputs": completed_outputs,
+        }
+
+        try:
+            return bool(eval(condition, {"__builtins__": {}}, context))
+        except Exception:
+            return False
+
+    def _ready_steps(
+        self,
+        pending: dict[int, WorkflowStep],
+        completed: set[int],
+        outputs: dict[int, Any],
+        user_input: str,
+    ):
+        ready = []
+
+        for step in pending.values():
+
+            deps = step.depends_on or []
+
+            if not all(dep in completed for dep in deps):
+                continue
+
+            if not self._evaluate_condition(
+                step.condition,
+                outputs,
+                user_input,
+            ):
+                continue
+
+            ready.append(step)
+
+        return ready
+
+    # =========================================================
+    # STEP EXECUTOR (isolated unit)
+    # =========================================================
+    async def _execute_single_step(
+        self,
+        db: AsyncSession,
+        workflow_run: WorkflowRun,
+        step: WorkflowStep,
+        user_input: str,
+        dependency_outputs: dict[int, Any],
+        max_retries: int,
+        continue_on_error: bool,
+    ):
+        await self._emit_event(
+            db,
+            workflow_run.id,
+            "step_start",
+            {
+                "step_id": step.id,
+                "name": step.name,
+                "dependencies": step.depends_on or [],
+            },
+        )
+
+        prompt = step.prompt_template
+        prompt = prompt.replace("{{input}}", user_input)
+        prompt = prompt.replace(
+            "{{dependency_outputs}}",
+            json.dumps(dependency_outputs),
+        )
+
+        attempt = 0
+        success = False
+        ai_output = None
+        error_message = None
+
+        start = time.time()
+
+        while attempt < max_retries and not success:
+            try:
+                ai_output = await self.ai.generate_chat_response(
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                success = True
+
+            except Exception as e:
+                attempt += 1
+                error_message = str(e)
+
+                await self._emit_event(
+                    db,
+                    workflow_run.id,
+                    "retry",
+                    {
+                        "step_id": step.id,
+                        "attempt": attempt,
+                        "error": error_message,
+                    },
+                )
+
+                if attempt >= max_retries and not continue_on_error:
+                    raise
+
+        execution_time_ms = int((time.time() - start) * 1000)
+
+        db.add(
+            WorkflowStepRun(
+                workflow_run_id=workflow_run.id,
+                workflow_step_id=step.id,
+                step_order=step.step_order,
+                input=prompt,
+                output=ai_output,
+                status="completed" if success else "failed",
+                execution_time_ms=execution_time_ms,
+                retry_count=attempt,
+                error_message=error_message,
+            )
+        )
+
+        await db.flush()
+
+        if success:
+            await self._emit_event(
+                db,
+                workflow_run.id,
+                "step_done",
+                {
+                    "step_id": step.id,
+                    "output": ai_output,
+                    "execution_time_ms": execution_time_ms,
+                },
+            )
+
+        else:
+            await self._emit_event(
+                db,
+                workflow_run.id,
+                "step_error",
+                {
+                    "step_id": step.id,
+                    "error": error_message,
+                },
+            )
+
+        return step.id, ai_output, success
+
+    # =========================================================
+    # DAG EXECUTION ENGINE
     # =========================================================
     async def _execute_steps(
         self,
@@ -60,210 +244,92 @@ class WorkflowService:
         result = await db.execute(
             select(WorkflowStep)
             .where(WorkflowStep.workflow_id == workflow_id)
-            .order_by(WorkflowStep.step_order)
         )
 
         steps = result.scalars().all()
 
-        # =====================================================
-        # DAG STATE
-        # =====================================================
-        pending_steps = {step.id: step for step in steps}
-        completed_steps = set()
-        completed_outputs = {}
+        # ---------------------------
+        # DAG validation
+        # ---------------------------
+        self._detect_cycles(steps)
+
+        pending = {s.id: s for s in steps}
+        completed = set()
+        outputs = {}
 
         final_output = None
 
-        # =====================================================
-        # DAG LOOP
-        # =====================================================
-        while pending_steps:
+        # ---------------------------
+        # DAG loop
+        # ---------------------------
+        while pending:
 
-            ready_steps = []
+            ready = self._ready_steps(
+                pending,
+                completed,
+                outputs,
+                user_input,
+            )
 
-            # ---------------------------------------------
-            # find executable steps
-            # ---------------------------------------------
-            for step_id, step in pending_steps.items():
-
-                deps = step.depends_on or []
-
-                if all(dep in completed_steps for dep in deps):
-                    ready_steps.append(step)
-
-            if not ready_steps:
+            if not ready:
                 raise Exception(
-                    "Circular dependency or invalid DAG detected"
+                    "Deadlock: no executable steps (check dependencies/conditions)"
                 )
 
-            # remove ready steps from pending
-            for step in ready_steps:
-                pending_steps.pop(step.id)
+            for step in ready:
+                pending.pop(step.id)
 
-            # =================================================
-            # EXECUTE READY STEPS (sequential version for safety)
-            # =================================================
-            for step in ready_steps:
-
-                dependency_outputs = {
-                    dep: completed_outputs.get(dep)
-                    for dep in (step.depends_on or [])
-                }
-
-                # ---------------------------------------------
-                # STEP START EVENT
-                # ---------------------------------------------
-                yield await self._emit_event(
-                    db=db,
-                    workflow_run_id=workflow_run.id,
-                    event_type="step_start",
-                    data={
-                        "step_id": step.id,
-                        "name": step.name,
-                        "order": step.step_order,
-                        "dependencies": step.depends_on or [],
-                    },
-                )
-
-                # ---------------------------------------------
-                # PROMPT BUILD
-                # ---------------------------------------------
-                prompt = step.prompt_template
-
-                prompt = prompt.replace(
-                    "{{input}}",
-                    user_input,
-                )
-
-                prompt = prompt.replace(
-                    "{{dependency_outputs}}",
-                    json.dumps(dependency_outputs),
-                )
-
-                # ---------------------------------------------
-                # EXECUTION
-                # ---------------------------------------------
-                attempt = 0
-                success = False
-                ai_output = None
-                error_message = None
-
-                start = time.time()
-
-                while attempt < max_retries and not success:
-
-                    try:
-                        ai_output = await self.ai.generate_chat_response(
-                            messages=[
-                                {
-                                    "role": "user",
-                                    "content": prompt,
-                                }
-                            ]
-                        )
-                        success = True
-
-                    except Exception as e:
-                        attempt += 1
-                        error_message = str(e)
-
-                        yield await self._emit_event(
-                            db=db,
-                            workflow_run_id=workflow_run.id,
-                            event_type="retry",
-                            data={
-                                "step_id": step.id,
-                                "attempt": attempt,
-                                "error": error_message,
-                            },
-                        )
-
-                        if attempt >= max_retries and not continue_on_error:
-                            raise
-
-                execution_time_ms = int(
-                    (time.time() - start) * 1000
-                )
-
-                # ---------------------------------------------
-                # STEP PERSISTENCE
-                # ---------------------------------------------
-                step_run = WorkflowStepRun(
-                    workflow_run_id=workflow_run.id,
-                    workflow_step_id=step.id,
-                    step_order=step.step_order,
-                    input=prompt,
-                    output=ai_output,
-                    status="completed" if success else "failed",
-                    execution_time_ms=execution_time_ms,
-                    retry_count=attempt,
-                    error_message=error_message,
-                )
-
-                db.add(step_run)
-                await db.flush()
-
-                # ---------------------------------------------
-                # SUCCESS
-                # ---------------------------------------------
-                if success:
-
-                    completed_steps.add(step.id)
-                    completed_outputs[step.id] = ai_output
-                    final_output = ai_output
-
-                    yield await self._emit_event(
-                        db=db,
-                        workflow_run_id=workflow_run.id,
-                        event_type="step_done",
-                        data={
-                            "step_id": step.id,
-                            "output": ai_output,
-                            "execution_time_ms": execution_time_ms,
+            # ---------------------------
+            # PARALLEL EXECUTION
+            # ---------------------------
+            results = await asyncio.gather(
+                *[
+                    self._execute_single_step(
+                        db,
+                        workflow_run,
+                        step,
+                        user_input,
+                        {
+                            dep: outputs.get(dep)
+                            for dep in (step.depends_on or [])
                         },
+                        max_retries,
+                        continue_on_error,
                     )
+                    for step in ready
+                ]
+            )
 
-                # ---------------------------------------------
-                # FAILURE
-                # ---------------------------------------------
-                else:
+            # ---------------------------
+            # merge results
+            # ---------------------------
+            for step_id, output, success in results:
 
-                    yield await self._emit_event(
-                        db=db,
-                        workflow_run_id=workflow_run.id,
-                        event_type="step_error",
-                        data={
-                            "step_id": step.id,
-                            "error": error_message,
-                        },
-                    )
+                completed.add(step_id)
+                outputs[step_id] = output
+                final_output = output or final_output
 
-                    if not continue_on_error:
-                        workflow_run.status = "failed"
-                        await db.commit()
-                        raise Exception(
-                            f"Step failed: {step.name}"
-                        )
-
-        # =====================================================
-        # FINALIZE WORKFLOW
-        # =====================================================
         workflow_run.output = final_output or ""
         workflow_run.status = "completed"
 
         await db.commit()
 
+        await self._emit_event(
+            db,
+            workflow_run.id,
+            "workflow_done",
+            {"output": final_output},
+        )
+
         yield await self._emit_event(
-            db=db,
-            workflow_run_id=workflow_run.id,
-            event_type="workflow_done",
-            data={
-                "output": final_output,
-            },
+            db,
+            workflow_run.id,
+            "workflow_done",
+            {"output": final_output},
         )
 
     # =========================================================
-    # NORMAL EXECUTION
+    # RUN (NON-STREAM)
     # =========================================================
     async def run_workflow(
         self,
@@ -286,24 +352,21 @@ class WorkflowService:
         final_output = None
 
         async for event in self._execute_steps(
-            db=db,
-            workflow_run=workflow_run,
-            workflow_id=workflow_id,
-            user_input=user_input,
-            max_retries=max_retries,
-            continue_on_error=continue_on_error,
+            db,
+            workflow_run,
+            workflow_id,
+            user_input,
+            max_retries,
+            continue_on_error,
         ):
-
-            if "event: workflow_done" in event:
-                data_line = event.split("\n")[1]
-                json_data = data_line.replace("data: ", "")
-                payload = json.loads(json_data)
+            if "workflow_done" in event:
+                payload = json.loads(event.split("\n")[1].replace("data: ", ""))
                 final_output = payload.get("output")
 
         return final_output or ""
 
     # =========================================================
-    # STREAMING EXECUTION
+    # STREAM
     # =========================================================
     async def run_workflow_stream(
         self,
@@ -313,7 +376,6 @@ class WorkflowService:
         max_retries: int = 3,
         continue_on_error: bool = True,
     ):
-
         workflow_run = WorkflowRun(
             workflow_id=workflow_id,
             input=user_input,
@@ -324,11 +386,11 @@ class WorkflowService:
         await db.flush()
 
         async for event in self._execute_steps(
-            db=db,
-            workflow_run=workflow_run,
-            workflow_id=workflow_id,
-            user_input=user_input,
-            max_retries=max_retries,
-            continue_on_error=continue_on_error,
+            db,
+            workflow_run,
+            workflow_id,
+            user_input,
+            max_retries,
+            continue_on_error,
         ):
             yield event
