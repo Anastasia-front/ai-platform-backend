@@ -696,3 +696,46 @@ System is correct if ALL are true:
                   Output
                   workflow_run.output is never NULL
 ```
+
+### DAG execution model
+
+```
+        Step A
+       /      \
+   Step B    Step C
+       \      /
+        Step D
+         |
+      Step E
+```
+
+Key capabilities:
+
+- parallel execution (B & C run concurrently)
+- dependency resolution
+- conditional routing
+- step-level isolation
+- partial failure handling
+
+2. Core conceptual shift
+
+- Old model
+
+Each step depends on: previous_output
+
+- New model
+
+Each step depends on:
+
+```
+dependencies = [step_ids]
+inputs = resolved dependency outputs
+```
+
+No global "previous_output" anymore.
+
+#### For now architecture becomes:
+
+- Layer 1 — DAG Storage - Workflow - WorkflowStep - dependencies - conditions - tools - models
+- Layer 2 — Runtime Engine - scheduler - executor - retry manager - timeout manager - event bus - parallel runner
+- Layer 3 — Agent Runtime - tool calls - memory - context - reflection - routing - planning
