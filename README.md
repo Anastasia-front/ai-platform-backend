@@ -734,6 +734,15 @@ inputs = resolved dependency outputs
 
 No global "previous_output" anymore.
 
+```
+            File -> Responsibility
+
+workflow_service.py  -> orchestration
+dag_engine.py        -> DAG scheduling
+step_executor.py     -> AI execution
+event_bus.py         -> SSE + events
+```
+
 #### For now architecture becomes:
 
 - Layer 1 — DAG Storage - Workflow - WorkflowStep - dependencies - conditions - tools - models

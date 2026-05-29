@@ -9,7 +9,7 @@ from .project import (
     get_project_by_id,
     get_user_projects,
 )
-from .workflow import WorkflowService
+from .workflow.workflow import WorkflowService
 
 __all__ = [
     "AIService",
