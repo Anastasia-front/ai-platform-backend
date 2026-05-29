@@ -128,6 +128,8 @@ async def create_workflow_step(
         step_order=payload.step_order,
         name=payload.name,
         prompt_template=payload.prompt_template,
+        depends_on=payload.depends_on,
+        condition=payload.condition,
     )
 
     db.add(step)

@@ -1,12 +1,15 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class WorkflowStepCreate(BaseModel):
     step_order: int
     name: str
     prompt_template: str
+
+    depends_on: list[int] = []
+    condition: str | None = None
 
 
 class WorkflowStepResponse(BaseModel):
@@ -15,7 +18,12 @@ class WorkflowStepResponse(BaseModel):
     step_order: int
     name: str
     prompt_template: str
+
+    depends_on: list[int] = []
+    condition: str | None = None
+
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+        from_attributes=True
+    )

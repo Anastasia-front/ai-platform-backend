@@ -52,6 +52,7 @@ class WorkflowStep(Base):
         JSON,
         nullable=False,
         default=list,
+        server_default="[]",
     )
 
     condition: Mapped[str | None] = mapped_column(
