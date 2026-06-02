@@ -1,5 +1,6 @@
 import asyncio
 
+from simpleeval import simple_eval
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import WorkflowRun, WorkflowStep
@@ -60,29 +61,33 @@ class DAGEngine:
     # =====================================================
     # CONDITIONAL EXECUTION
     # =====================================================
+
+    ALLOWED_FUNCTIONS = {
+        "len": len,
+    }
+
     def evaluate_condition(
         self,
-        condition,
-        outputs,
-        user_input,
-    ):
+        condition: str | None,
+        outputs: dict,
+        user_input: str,
+    ) -> bool:
 
         if not condition:
             return True
 
-        context = {
-            "input": user_input,
-            "outputs": outputs,
-        }
-
         try:
             return bool(
-                eval(
+                simple_eval(
                     condition,
-                    {"__builtins__": {}},
-                    context,
+                    names={
+                        "input": user_input,
+                        "outputs": outputs,
+                    },
+                    functions=self.ALLOWED_FUNCTIONS,
                 )
             )
+
         except Exception:
             return False
 
