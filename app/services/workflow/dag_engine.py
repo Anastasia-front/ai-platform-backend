@@ -8,14 +8,14 @@ from app.repositories import (
     WorkflowStepRepository,
     WorkflowStepRunRepository,
 )
-from app.services.workflow.ai_executor import StepExecutor
+from app.services.workflow.ai_executor import AIExecutor
 from app.services.workflow.event_bus import EventBus
 
 
 class DAGEngine:
 
     def __init__(self):
-        self.executor = StepExecutor()
+        self.executor = AIExecutor()
         self.events = EventBus()
 
         self.steps = WorkflowStepRepository()

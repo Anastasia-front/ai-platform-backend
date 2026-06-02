@@ -6,7 +6,7 @@ from app.models import WorkflowStep
 from app.services import AIService
 
 
-class StepExecutor:
+class AIExecutor:
 
     def __init__(self):
         self.ai = AIService()
