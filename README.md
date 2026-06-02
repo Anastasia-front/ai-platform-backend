@@ -748,3 +748,13 @@ event_bus.py         -> SSE + events
 - Layer 1 — DAG Storage - Workflow - WorkflowStep - dependencies - conditions - tools - models
 - Layer 2 — Runtime Engine - scheduler - executor - retry manager - timeout manager - event bus - parallel runner
 - Layer 3 — Agent Runtime - tool calls - memory - context - reflection - routing - planning
+
+workflow/
+├── workflow.py # orchestration
+├── dag_engine.py # scheduler
+├── ai_executor.py # LLM calls
+├── event_bus.py # events
+├── repositories/
+│ ├── workflow_runs.py
+│ ├── workflow_steps.py
+│ └── workflow_events.py

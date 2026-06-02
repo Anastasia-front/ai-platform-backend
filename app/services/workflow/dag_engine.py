@@ -1,10 +1,14 @@
+import asyncio
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import WorkflowRun, WorkflowStep
+from app.repositories import (
+    WorkflowStepRepository,
+    WorkflowStepRunRepository,
+)
+from app.services.workflow.ai_executor import StepExecutor
 from app.services.workflow.event_bus import EventBus
-from app.services.workflow.step_executor import StepExecutor
 
 
 class DAGEngine:
@@ -12,6 +16,9 @@ class DAGEngine:
     def __init__(self):
         self.executor = StepExecutor()
         self.events = EventBus()
+
+        self.steps = WorkflowStepRepository()
+        self.step_runs = WorkflowStepRunRepository()
 
     # =====================================================
     # CYCLE DETECTION
@@ -126,15 +133,16 @@ class DAGEngine:
         continue_on_error: bool,
     ):
 
-        result = await db.execute(
-            select(WorkflowStep)
-            .where(
-                WorkflowStep.workflow_id == workflow_id
-            )
-            .order_by(WorkflowStep.step_order)
+        steps = await self.steps.get_workflow_steps(
+            db,
+            workflow_id,
         )
 
-        steps = result.scalars().all()
+        if not steps:
+            workflow_run.status = "completed"
+            workflow_run.output = ""
+            await db.flush()
+            return ""
 
         self.detect_cycles(steps)
 
@@ -146,7 +154,15 @@ class DAGEngine:
         completed_steps = set()
         completed_outputs = {}
 
-        final_output = None
+        # terminal nodes = steps nobody depends on
+        terminal_steps = [
+            step.id
+            for step in steps
+            if not any(
+                step.id in (other.depends_on or [])
+                for other in steps
+            )
+        ]
 
         while pending_steps:
 
@@ -162,25 +178,73 @@ class DAGEngine:
                     "Deadlock detected in DAG"
                 )
 
+            # remove from pending
             for step in ready_steps:
                 pending_steps.pop(step.id)
 
-            results = []
-
+            # -----------------------------------------
+            # emit start events
+            # -----------------------------------------
             for step in ready_steps:
 
-                result = await self.executor.execute(
-                  db=db,
-                  workflow_run=workflow_run,
-                  step=step,
-                  user_input=user_input,
-                  dependency_outputs=completed_outputs,
-                  max_retries=max_retries,
-                  continue_on_error=continue_on_error,
+                await self.events.emit(
+                    db,
+                    workflow_run.id,
+                    "step_start",
+                    {
+                        "step_id": step.id,
+                        "name": step.name,
+                        "dependencies": (
+                            step.depends_on or []
+                        ),
+                    },
                 )
 
-                results.append(result)
+            await db.flush()
 
+            # -----------------------------------------
+            # execute AI tasks in parallel
+            # -----------------------------------------
+            results = await asyncio.gather(
+                *[
+                    self.executor.execute(
+                        step=step,
+                        user_input=user_input,
+                        dependency_outputs={
+                            dep: completed_outputs.get(dep)
+                            for dep in (
+                                step.depends_on or []
+                            )
+                        },
+                        max_retries=max_retries,
+                        continue_on_error=continue_on_error,
+                    )
+                    for step in ready_steps
+                ]
+            )
+
+            # -----------------------------------------
+            # persist results
+            # -----------------------------------------
+            for result in results:
+
+                await self.step_runs.create(
+                    db=db,
+                    workflow_run_id=workflow_run.id,
+                    workflow_step_id=result["step_id"],
+                    step_order=result["step_order"],
+                    input=result["prompt"],
+                    output=result["output"],
+                    status="completed" if result["success"] else "failed",
+                    execution_time_ms=result["execution_time_ms"],
+                    retry_count=result["retry_count"],
+                    error_message=result["error_message"],
+                )
+            await db.flush()
+
+            # -----------------------------------------
+            # process results
+            # -----------------------------------------
             for result in results:
 
                 if result["success"]:
@@ -193,11 +257,63 @@ class DAGEngine:
                         result["step_id"]
                     ] = result["output"]
 
-                    final_output = result["output"]
+                    await self.events.emit(
+                        db,
+                        workflow_run.id,
+                        "step_done",
+                        {
+                            "step_id": result[
+                                "step_id"
+                            ],
+                            "output": result[
+                                "output"
+                            ],
+                            "execution_time_ms": result[
+                                "execution_time_ms"
+                            ],
+                        },
+                    )
 
-        workflow_run.output = final_output or ""
-        workflow_run.status = "completed"
+                else:
 
-        await db.commit()
+                    await self.events.emit(
+                        db,
+                        workflow_run.id,
+                        "step_error",
+                        {
+                            "step_id": result[
+                                "step_id"
+                            ],
+                            "error": result[
+                                "error_message"
+                            ],
+                        },
+                    )
+
+                    if not continue_on_error:
+
+                        workflow_run.status = "failed"
+
+                        await db.commit()
+
+                        raise Exception(
+                            f"Step failed: {result['step_id']}"
+                        )
+
+            await db.flush()
+
+        # =====================================================
+        # FINAL OUTPUT
+        # =====================================================
+        final_outputs = [
+            completed_outputs[step_id]
+            for step_id in terminal_steps
+            if step_id in completed_outputs
+            and completed_outputs[step_id]
+        ]
+
+        final_output = "\n\n".join(
+            final_outputs
+        )
 
         return final_output
