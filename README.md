@@ -758,3 +758,20 @@ workflow/
 │ ├── workflow_runs.py
 │ ├── workflow_steps.py
 │ └── workflow_events.py
+
+Production version is to build tasks explicitly:
+
+```
+Step 14 = success
+Step 15 = raises AttributeError
+
+=> results contains:
+
+- success result for 14
+- failed result for 15
+
+=> workflow can:
+
+- continue_on_error=True -> keep going
+- continue_on_error=False -> stop cleanly
+```

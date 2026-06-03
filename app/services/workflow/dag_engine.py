@@ -210,23 +210,53 @@ class DAGEngine:
             # -----------------------------------------
             # execute AI tasks in parallel
             # -----------------------------------------
-            results = await asyncio.gather(
-                *[
+            tasks = []
+
+            for step in ready_steps:
+
+                tasks.append(
                     self.executor.execute(
                         step=step,
                         user_input=user_input,
                         dependency_outputs={
                             dep: completed_outputs.get(dep)
-                            for dep in (
-                                step.depends_on or []
-                            )
+                            for dep in (step.depends_on or [])
                         },
                         max_retries=max_retries,
                         continue_on_error=continue_on_error,
                     )
-                    for step in ready_steps
-                ]
+                )
+
+            raw_results = await asyncio.gather(
+                *tasks,
+                return_exceptions=True,
             )
+
+            results = []
+
+            for step, result in zip(
+                ready_steps,
+                raw_results,
+            ):
+
+                if isinstance(result, Exception):
+
+                    results.append(
+                        {
+                            "step_id": step.id,
+                            "step_order": step.step_order,
+                            "prompt": step.prompt_template,
+                            "success": False,
+                            "output": None,
+                            "execution_time_ms": 0,
+                            "retry_count": max_retries,
+                            "error_message": str(result),
+                        }
+                    )
+
+                else:
+
+                    results.append(result)
 
             # -----------------------------------------
             # persist results
