@@ -1,7 +1,8 @@
 from datetime import datetime
-from typing import Literal
 
 from pydantic import BaseModel
+
+from app.enums import DocumentStatus
 
 
 class DocumentResponse(BaseModel):
@@ -9,10 +10,5 @@ class DocumentResponse(BaseModel):
     project_id: int
     filename: str
     filepath: str
-    status: Literal[
-        "uploaded",
-        "processing",
-        "indexed",
-        "failed",
-    ]
+    status: DocumentStatus
     created_at: datetime
