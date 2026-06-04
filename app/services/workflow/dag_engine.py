@@ -3,6 +3,7 @@ import asyncio
 from simpleeval import simple_eval
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.enums import WorkflowRunStatus
 from app.models import WorkflowRun, WorkflowStep
 from app.repositories import (
     WorkflowStepRepository,
@@ -144,7 +145,7 @@ class DAGEngine:
         )
 
         if not steps:
-            workflow_run.status = "completed"
+            workflow_run.status = WorkflowRunStatus.COMPLETED
             workflow_run.output = ""
             await db.flush()
             return ""
@@ -327,7 +328,7 @@ class DAGEngine:
 
                     if not continue_on_error:
 
-                        workflow_run.status = "failed"
+                        workflow_run.status = WorkflowRunStatus.FAILED
 
                         await db.commit()
 

@@ -1,7 +1,8 @@
 from datetime import datetime
-from typing import Literal
 
 from pydantic import BaseModel
+
+from app.enums import WorkflowRunStatus
 
 
 class WorkflowCreate(BaseModel):
@@ -12,12 +13,7 @@ class WorkflowResponse(BaseModel):
     id: int
     project_id: int
     name: str
-    status: Literal[
-        "pending",
-        "running",
-        "completed",
-        "failed",
-    ]
+    status: WorkflowRunStatus
     created_at: datetime
 
     class Config:

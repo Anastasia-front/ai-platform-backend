@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.enums import WorkflowRunStatus
 from app.models import WorkflowRun
 
 
@@ -32,7 +33,7 @@ class WorkflowRunRepository:
     ):
 
         workflow_run.output = output
-        workflow_run.status = "completed"
+        workflow_run.status = WorkflowRunStatus.COMPLETED
 
         await db.flush()
 
@@ -42,6 +43,6 @@ class WorkflowRunRepository:
         workflow_run: WorkflowRun,
     ):
 
-        workflow_run.status = "failed"
+        workflow_run.status = WorkflowRunStatus.FAILED
 
         await db.flush()
