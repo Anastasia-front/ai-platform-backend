@@ -1,9 +1,10 @@
 from app.agents.base import BaseAgent
+from app.enums.agent import AgentType
 
 
 class AssistantAgent(BaseAgent):
 
-    name = "assistant"
+    name: AgentType = AgentType.ASSISTANT
 
     system_prompt = (
         "You are a helpful AI assistant "
