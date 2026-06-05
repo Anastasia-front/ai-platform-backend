@@ -10,11 +10,15 @@ from ...repositories.workflow_runs import (
 
 class WorkflowService:
 
-    def __init__(self):
-
-        self.engine = DAGEngine()
-        self.events = EventBus()
-        self.runs = WorkflowRunRepository()
+    def __init__(
+        self,
+        runs: WorkflowRunRepository,
+        events: EventBus,
+        engine: DAGEngine,
+    ):
+        self.runs = runs
+        self.events = events
+        self.engine = engine
 
     async def run_workflow(
         self,
@@ -99,3 +103,33 @@ class WorkflowService:
         )
 
         await db.commit()
+
+
+# business logic
+# load run
+# call DAG engine
+# resume execution
+    async def resume_workflow(
+        self,
+        db: AsyncSession,
+        run_id: int,
+    ):
+
+        workflow_run = await self.runs.get_by_id(
+            db,
+            run_id,
+        )
+
+        if not workflow_run:
+            raise ValueError("Workflow run not found")
+
+        output = await self.engine.execute(
+            db=db,
+            workflow_run=workflow_run,
+            workflow_id=workflow_run.workflow_id,
+            user_input=workflow_run.input,
+            max_retries=3,
+            continue_on_error=True,
+        )
+
+        return output
