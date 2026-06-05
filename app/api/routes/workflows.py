@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.dependencies import get_current_user
 from app.dependencies.workflow import get_workflow_service
+from app.enums import WorkflowRunStatus
 from app.models import Project, Workflow
 from app.schemas import (
     WorkflowCreate,
@@ -87,7 +88,7 @@ async def create_workflow(
     workflow = Workflow(
         project_id=project_id,
         name=payload.name,
-        status="pending",
+        status=WorkflowRunStatus.RUNNING,
     )
 
     db.add(workflow)

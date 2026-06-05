@@ -4,6 +4,7 @@ from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.enums import DocumentStatus
 
 
 class Document(Base):
@@ -23,7 +24,7 @@ class Document(Base):
 
     status: Mapped[str] = mapped_column(
         String(50),
-        default="uploaded",  # uploaded | processing | indexed | failed
+        default=DocumentStatus.UPLOADED,  # uploaded | processing | indexed | failed
         nullable=False,
     )
 

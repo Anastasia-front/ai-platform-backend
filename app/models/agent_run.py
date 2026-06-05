@@ -4,6 +4,7 @@ from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.enums import WorkflowRunStatus
 
 
 class AgentRun(Base):
@@ -21,7 +22,7 @@ class AgentRun(Base):
 
     status: Mapped[str] = mapped_column(
         String,
-        default="pending",
+        default=WorkflowRunStatus.PENDING,
         nullable=False,
     )
 

@@ -169,13 +169,13 @@ class DAGEngine:
         completed_steps = {
             run.workflow_step_id
             for run in completed_runs
-            if run.status == "completed"
+            if run.status == WorkflowRunStatus.COMPLETED
         }
 
         completed_outputs = {
             run.workflow_step_id: run.output
             for run in completed_runs
-            if run.status == "completed"
+            if run.status == WorkflowRunStatus.COMPLETED
         }
 
         # remove already executed nodes
@@ -292,7 +292,7 @@ class DAGEngine:
                     workflow_step_id=result["step_id"],
                 )
 
-                if existing and existing.status == "completed":
+                if existing and existing.status == WorkflowRunStatus.COMPLETED:
                     continue
                 
                 await self.step_runs.create(
@@ -302,7 +302,7 @@ class DAGEngine:
                     step_order=result["step_order"],
                     input=result["prompt"],
                     output=result["output"],
-                    status="completed" if result["success"] else "failed",
+                    status=WorkflowRunStatus.COMPLETED if result["success"] else WorkflowRunStatus.FAILED,
                     execution_time_ms=result["execution_time_ms"],
                     retry_count=result["retry_count"],
                     error_message=result["error_message"],

@@ -17,7 +17,7 @@ class WorkflowRunRepository:
         workflow_run = WorkflowRun(
             workflow_id=workflow_id,
             input=user_input,
-            status="running",
+            status= WorkflowRunStatus.RUNNING,
         )
 
         db.add(workflow_run)
@@ -55,13 +55,12 @@ class WorkflowRunRepository:
         result = await db.execute(
             select(WorkflowRun)
             .where(
-                WorkflowRun.status == "running"
+                WorkflowRun.status ==  WorkflowRunStatus.RUNNING
             )
         )
 
         return result.scalars().all()
     
-
     async def get_by_id(
         self,
         db: AsyncSession,
@@ -74,3 +73,31 @@ class WorkflowRunRepository:
         )
 
         return result.scalar_one_or_none()
+    
+    async def get_for_user(
+        self,
+        db: AsyncSession,
+        run_id: int,
+        user_id: int,
+    ):
+        result = await db.execute(
+            select(WorkflowRun).where(
+                WorkflowRun.id == run_id,
+                WorkflowRun.user_id == user_id,
+            )
+        )
+
+        return result.scalar_one_or_none()
+
+    async def list_for_user(
+        self,
+        db: AsyncSession,
+        user_id: int,
+    ):
+        result = await db.execute(
+            select(WorkflowRun).where(
+                WorkflowRun.user_id == user_id
+            )
+        )
+
+        return result.scalars().all()
