@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import WorkflowStepRun
@@ -21,3 +22,33 @@ class WorkflowStepRunRepository:
         await db.flush()
 
         return run
+    
+    async def get_completed_steps(
+        self,
+        db,
+        workflow_run_id: int,
+    ):
+        result = await db.execute(
+            select(WorkflowStepRun)
+            .where(
+                WorkflowStepRun.workflow_run_id
+                == workflow_run_id
+            )
+        )
+
+        return result.scalars().all()
+    
+    async def get_step_run(
+        self,
+        db: AsyncSession,
+        workflow_run_id: int,
+        workflow_step_id: int,
+    ):
+        result = await db.execute(
+            select(WorkflowStepRun).where(
+                WorkflowStepRun.workflow_run_id == workflow_run_id,
+                WorkflowStepRun.workflow_step_id == workflow_step_id,
+            )
+        )
+
+        return result.scalar_one_or_none()

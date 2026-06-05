@@ -2,11 +2,13 @@ from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.dependencies.auth import get_current_user
+from app.dependencies import get_current_user
+from app.dependencies.workflow import get_workflow_service
 from app.models import Project, Workflow
 from app.schemas import (
     WorkflowCreate,
@@ -191,6 +193,9 @@ async def run_workflow(
     payload: WorkflowRunRequest,
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
+    service: WorkflowService = Depends(
+    get_workflow_service
+)
 ):
     # 1. load workflow
     result = await db.execute(
@@ -219,8 +224,6 @@ async def run_workflow(
         )
 
     # 3. execute workflow
-    service = WorkflowService()
-
     output = await service.run_workflow(
         db=db,
         workflow_id=workflow_id,
@@ -233,4 +236,29 @@ async def run_workflow(
         input=payload.input,
         output=output,
         created_at=datetime.now(timezone.utc),
+    )
+
+# -------------------------------------------------
+# STREAMING ROUTE
+# -------------------------------------------------
+
+@router.post("/workflows/{workflow_id}/stream")
+async def run_workflow_stream(
+    workflow_id: int,
+    payload: WorkflowRunRequest,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+    service: WorkflowService = Depends(get_workflow_service),
+):
+    async def event_generator():
+        async for event in service.run_workflow_stream(
+            db=db,
+            workflow_id=workflow_id,
+            user_input=payload.input,
+        ):
+            yield event
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
     )

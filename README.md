@@ -775,3 +775,19 @@ Step 15 = raises AttributeError
 - continue_on_error=True -> keep going
 - continue_on_error=False -> stop cleanly
 ```
+
+Persistent DAG state:
+
+```
+Run workflow
+↓
+Step 1 completed
+↓
+Step 2 completed
+↓
+Server crashes
+↓
+Restart
+↓
+Resume from Step 3
+```

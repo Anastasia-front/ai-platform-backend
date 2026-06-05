@@ -157,8 +157,30 @@ class DAGEngine:
             for step in steps
         }
 
-        completed_steps = set()
-        completed_outputs = {}
+
+        # persistent DAG state
+        completed_runs = (
+            await self.step_runs.get_completed_steps(
+                db,
+                workflow_run.id,
+            )
+        )
+
+        completed_steps = {
+            run.workflow_step_id
+            for run in completed_runs
+            if run.status == "completed"
+        }
+
+        completed_outputs = {
+            run.workflow_step_id: run.output
+            for run in completed_runs
+            if run.status == "completed"
+        }
+
+        # remove already executed nodes
+        for step_id in completed_steps:
+            pending_steps.pop(step_id, None)
 
         # terminal nodes = steps nobody depends on
         terminal_steps = [
@@ -262,8 +284,17 @@ class DAGEngine:
             # -----------------------------------------
             # persist results
             # -----------------------------------------
-            for result in results:
 
+            for result in results:
+                existing = await self.step_runs.get_step_run(
+                    db=db,
+                    workflow_run_id=workflow_run.id,
+                    workflow_step_id=result["step_id"],
+                )
+
+                if existing and existing.status == "completed":
+                    continue
+                
                 await self.step_runs.create(
                     db=db,
                     workflow_run_id=workflow_run.id,
