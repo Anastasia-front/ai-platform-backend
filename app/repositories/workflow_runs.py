@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import WorkflowRunStatus
@@ -46,3 +47,30 @@ class WorkflowRunRepository:
         workflow_run.status = WorkflowRunStatus.FAILED
 
         await db.flush()
+
+    async def get_running(
+        self,
+        db: AsyncSession,
+    ):
+        result = await db.execute(
+            select(WorkflowRun)
+            .where(
+                WorkflowRun.status == "running"
+            )
+        )
+
+        return result.scalars().all()
+    
+
+    async def get_by_id(
+        self,
+        db: AsyncSession,
+        run_id: int,
+    ):
+        result = await db.execute(
+            select(WorkflowRun).where(
+                WorkflowRun.id == run_id
+            )
+        )
+
+        return result.scalar_one_or_none()
