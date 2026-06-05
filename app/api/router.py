@@ -5,6 +5,7 @@ from app.api.routes import (
     chats,
     messages,
     projects,
+    workflow_events,
     workflow_runs,
     workflow_steps,
     workflows,
@@ -46,4 +47,9 @@ router.include_router(
 router.include_router(
     workflow_runs.router,
     tags=["Workflow Runs"],
+)
+
+router.include_router(
+    workflow_events.router,
+    tags=["Workflow Events"],
 )

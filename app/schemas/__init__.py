@@ -6,6 +6,7 @@ from .document_chunk import DocumentChunkResponse
 from .message import MessageCreate, MessageResponse
 from .project import ProjectCreate, ProjectResponse
 from .workflow import WorkflowCreate, WorkflowResponse
+from .workflow_event import WorkflowEventResponse
 from .workflow_run import WorkflowRunRequest, WorkflowRunResponse
 from .workflow_step import WorkflowStepCreate, WorkflowStepResponse
 from .workflow_step_run import WorkflowStepRunResponse
@@ -32,4 +33,5 @@ __all__ = [
     "WorkflowStepCreate",
     "WorkflowStepResponse",
     "WorkflowStepRunResponse",
+    "WorkflowEventResponse",
 ]
