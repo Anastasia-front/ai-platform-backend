@@ -1,4 +1,4 @@
-from .agent import AgentRunStatus
+from .agent import AgentRunStatus, AgentType
 from .chat import MessageRole
 from .document import DocumentStatus
 from .workflow import WorkflowRunStatus
@@ -8,4 +8,5 @@ __all__ = [
     "AgentRunStatus",
     "DocumentStatus", 
     "MessageRole",
+    "AgentType",
 ]
