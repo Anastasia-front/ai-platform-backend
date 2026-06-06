@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.routes import projects
 from app.models import Chat, Project, User
 from app.schemas import ChatCreate
 
@@ -12,14 +13,11 @@ async def create_chat(
     user: User,
 ) -> Chat:
     # verify project ownership
-    result = await db.execute(
-        select(Project).where(
-            Project.id == project_id,
-            Project.user_id == user.id,
-        )
+    project = await projects.get_for_user(
+        db,
+        project_id,
+        user.id,
     )
-
-    project = result.scalar_one_or_none()
 
     if not project:
         return None

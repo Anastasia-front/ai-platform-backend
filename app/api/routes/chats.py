@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.routes import projects
 from app.core.database import get_db
 from app.dependencies import get_current_user
 from app.models import Chat, Project, User
@@ -27,14 +28,11 @@ async def get_project_chats(
     user: User = Depends(get_current_user),
 ):
     # ensure project belongs to user
-    project_result = await db.execute(
-        select(Project).where(
-            Project.id == project_id,
-            Project.user_id == user.id,
-        )
+    project = await projects.get_for_user(
+        db,
+        project_id,
+        user.id,
     )
-
-    project = project_result.scalar_one_or_none()
 
     if not project:
         raise HTTPException(
@@ -66,16 +64,13 @@ async def create_chat(
     user: User = Depends(get_current_user),
 ):
     # ensure project belongs to user
-    project_result = await db.execute(
-        select(Project).where(
-            Project.id == project_id,
-            Project.user_id == user.id,
+    project_result = await projects.get_for_user(
+            db,
+            project_id,
+            user.id,
         )
-    )
 
-    project = project_result.scalar_one_or_none()
-
-    if not project:
+    if not project_result:
         raise HTTPException(
             status_code=404,
             detail="Project not found",

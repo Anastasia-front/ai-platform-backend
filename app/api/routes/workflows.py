@@ -2,10 +2,10 @@ from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.routes import projects
 from app.core.database import get_db
 from app.dependencies import get_current_user
 from app.dependencies.workflow import get_workflow_service
@@ -34,14 +34,11 @@ async def get_workflows(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    project_result = await db.execute(
-        select(Project).where(
-            Project.id == project_id,
-            Project.user_id == user.id,
-        )
+    project= await projects.get_for_user(
+        db,
+        project_id,
+        user.id,
     )
-
-    project = project_result.scalar_one_or_none()
 
     if not project:
         raise HTTPException(
@@ -70,14 +67,11 @@ async def create_workflow(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    project_result = await db.execute(
-        select(Project).where(
-            Project.id == project_id,
-            Project.user_id == user.id,
-        )
+    project = await projects.get_for_user(
+        db,
+        project_id,
+        user.id,
     )
-
-    project = project_result.scalar_one_or_none()
 
     if not project:
         raise HTTPException(
@@ -239,27 +233,3 @@ async def run_workflow(
         created_at=datetime.now(timezone.utc),
     )
 
-# -------------------------------------------------
-# STREAMING ROUTE
-# -------------------------------------------------
-
-@router.post("/workflows/{workflow_id}/stream")
-async def run_workflow_stream(
-    workflow_id: int,
-    payload: WorkflowRunRequest,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
-    service: WorkflowService = Depends(get_workflow_service),
-):
-    async def event_generator():
-        async for event in service.run_workflow_stream(
-            db=db,
-            workflow_id=workflow_id,
-            user_input=payload.input,
-        ):
-            yield event
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-    )
