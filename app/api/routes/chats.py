@@ -1,13 +1,12 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.routes import projects
+from app.api.routes import chats, projects
 from app.core.database import get_db
-from app.dependencies import get_current_user
-from app.models import Chat, Project, User
+from app.dependencies import get_current_user, get_owned_chat
+from app.models import Chat, User
 from app.schemas import ChatCreate, ChatResponse
 
 router = APIRouter(
@@ -40,13 +39,13 @@ async def get_project_chats(
             detail="Project not found",
         )
 
-    result = await db.execute(
-        select(Chat).where(Chat.project_id == project_id)
+    chats_result = await chats.get_for_user(
+        db,
+        project_id,
+        user.id,
     )
 
-    chats = result.scalars().all()
-
-    return chats
+    return chats_result
 
 
 # -------------------------------------------------
@@ -98,27 +97,8 @@ async def create_chat(
     response_model=ChatResponse,
 )
 async def get_chat(
-    chat_id: int,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    chat = Depends(get_owned_chat),
 ):
-    result = await db.execute(
-        select(Chat)
-        .join(Project)
-        .where(
-            Chat.id == chat_id,
-            Project.user_id == user.id,
-        )
-    )
-
-    chat = result.scalar_one_or_none()
-
-    if not chat:
-        raise HTTPException(
-            status_code=404,
-            detail="Chat not found",
-        )
-
     return chat
 
 
@@ -130,30 +110,13 @@ async def get_chat(
     status_code=status.HTTP_200_OK,
 )
 async def delete_chat(
-    chat_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    chat = Depends(get_owned_chat),
 ):
-    result = await db.execute(
-        select(Chat)
-        .join(Project)
-        .where(
-            Chat.id == chat_id,
-            Project.user_id == user.id,
-        )
-    )
-
-    chat = result.scalar_one_or_none()
-
-    if not chat:
-        raise HTTPException(
-            status_code=404,
-            detail="Chat not found",
-        )
-
-    await db.delete(chat)
-    await db.commit()
-
+    await chats.delete(
+    db,
+    chat,
+)
     return {
         "message": "Chat deleted",
     }

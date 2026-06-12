@@ -1,13 +1,13 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents import AGENTS
+from app.api.routes import messages
 from app.core.database import get_db
-from app.dependencies import get_current_user
-from app.models import Chat, Message, Project
+from app.dependencies import get_current_user, get_owned_chat
+from app.models import Message
 from app.schemas import MessageCreate, MessageResponse
 from app.services import AIService
 
@@ -25,39 +25,15 @@ async def get_messages(
     chat_id: int,
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
+    chat = Depends(get_owned_chat),
 ):
-    # verify chat ownership
-    chat_result = await db.execute(
-        select(Chat).where(Chat.id == chat_id)
+
+    messages_result = await messages.list_for_chat(
+        db,
+        chat_id
     )
 
-    chat = chat_result.scalar_one_or_none()
-
-    if not chat:
-        raise HTTPException(
-            status_code=404,
-            detail="Chat not found",
-        )
-
-    project_result = await db.execute(
-        select(Project).where(Project.id == chat.project_id)
-    )
-
-    project = project_result.scalar_one_or_none()
-
-    if not project or project.user_id != user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Not allowed",
-        )
-
-    result = await db.execute(
-        select(Message)
-        .where(Message.chat_id == chat_id)
-        .order_by(Message.created_at)
-    )
-
-    return result.scalars().all()
+    return messages_result
 
 
 # -------------------------------------------------
@@ -72,32 +48,8 @@ async def create_message(
     chat_id: int,
     payload: MessageCreate,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    chat = Depends(get_owned_chat),
 ):
-    # verify chat ownership
-    chat_result = await db.execute(
-        select(Chat).where(Chat.id == chat_id)
-    )
-
-    chat = chat_result.scalar_one_or_none()
-
-    if not chat:
-        raise HTTPException(
-            status_code=404,
-            detail="Chat not found",
-        )
-
-    project_result = await db.execute(
-        select(Project).where(Project.id == chat.project_id)
-    )
-
-    project = project_result.scalar_one_or_none()
-
-    if not project or project.user_id != user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Not allowed",
-        )
 
     # ---------------------------
     # USER MESSAGE
@@ -121,13 +73,11 @@ async def create_message(
     # --------------------------------
     # LOAD CHAT HISTORY
     # --------------------------------
-    result = await db.execute(
-        select(Message)
-        .where(Message.chat_id == chat_id)
-        .order_by(Message.created_at)
+    history = await messages.list_for_chat(
+        db,
+        chat_id
     )
 
-    history = result.scalars().all()
 
     ollama_messages = [
         {
