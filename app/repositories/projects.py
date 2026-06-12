@@ -6,6 +6,19 @@ from app.models import Project
 
 class ProjectRepository:
 
+    async def create(
+        self,
+        db: AsyncSession,
+        **data,
+    ):
+        project = Project(**data)
+
+        db.add(project)
+
+        await db.flush()
+
+        return project
+
     async def get_by_id(
         self,
         db: AsyncSession,
@@ -48,3 +61,12 @@ class ProjectRepository:
         )
 
         return result.scalars().all()
+
+    async def delete(
+        self,
+        db: AsyncSession,
+        project: Project,
+    ):
+        await db.delete(project)
+
+        await db.flush()

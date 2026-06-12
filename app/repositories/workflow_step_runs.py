@@ -1,11 +1,11 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.enums import WorkflowRunStatus
 from app.models import WorkflowStepRun
 
 
 class WorkflowStepRunRepository:
-
 
     async def create(
         self,
@@ -23,21 +23,26 @@ class WorkflowStepRunRepository:
 
         return run
     
-    async def get_completed_steps(
+    async def list_completed_for_run(
         self,
-        db,
+        db: AsyncSession,
         workflow_run_id: int,
     ):
         result = await db.execute(
             select(WorkflowStepRun)
             .where(
                 WorkflowStepRun.workflow_run_id
-                == workflow_run_id
+                == workflow_run_id,
+                WorkflowStepRun.status
+                == WorkflowRunStatus.COMPLETED,
+            )
+            .order_by(
+                WorkflowStepRun.step_order
             )
         )
 
         return result.scalars().all()
-    
+
     async def get_step_run(
         self,
         db: AsyncSession,
