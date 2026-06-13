@@ -1,4 +1,5 @@
 from .chats import ChatRepository
+from .documents import DocumentRepository
 from .messages import MessageRepository
 from .projects import ProjectRepository
 from .workflow_events import WorkflowEventRepository
@@ -16,4 +17,5 @@ __all__ = [
     "WorkflowRunRepository",
     "WorkflowStepRepository",
     "WorkflowStepRunRepository",
+    "DocumentRepository",
 ]
