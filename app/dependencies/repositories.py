@@ -1,4 +1,5 @@
 from app.repositories import (
+    AgentRunRepository,
     ChatRepository,
     DocumentRepository,
     MessageRepository,
@@ -9,6 +10,9 @@ from app.repositories import (
     WorkflowStepRunRepository,
 )
 
+
+def get_agent_run_repository():
+    return AgentRunRepository()
 
 def get_project_repository():
     return ProjectRepository()
@@ -24,7 +28,6 @@ def get_workflow_repository():
 
 def get_workflow_run_repository():
     return WorkflowRunRepository()
-
 
 def get_workflow_step_run_repository():
     return WorkflowStepRunRepository()
