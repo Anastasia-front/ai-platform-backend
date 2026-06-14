@@ -1,5 +1,6 @@
 import httpx
-from app.core.config import settings
+
+from app.core import settings
 
 
 class AIService:

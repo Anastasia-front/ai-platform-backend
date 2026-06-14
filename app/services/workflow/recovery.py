@@ -3,8 +3,8 @@ import asyncio
 
 from fastapi import Depends
 
-from app.core.database import AsyncSessionLocal
-from app.dependencies.workflow import get_workflow_service
+from app.core import AsyncSessionLocal
+from app.dependencies import get_workflow_service
 from app.repositories import WorkflowRunRepository
 
 from .workflow import WorkflowService

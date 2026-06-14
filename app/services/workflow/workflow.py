@@ -1,11 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.workflow.dag_engine import DAGEngine
-from app.services.workflow.event_bus import EventBus
-
-from ...repositories.workflow_runs import (
+from app.repositories import (
     WorkflowRunRepository,
 )
+from app.services.workflow import DAGEngine, EventBus
 
 
 class WorkflowService:

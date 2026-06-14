@@ -9,8 +9,7 @@ from app.repositories import (
     WorkflowStepRepository,
     WorkflowStepRunRepository,
 )
-from app.services.workflow.ai_executor import AIExecutor
-from app.services.workflow.event_bus import EventBus
+from app.services.workflow import AIExecutor, EventBus
 
 
 class DAGEngine:
@@ -139,7 +138,7 @@ class DAGEngine:
         continue_on_error: bool,
     ):
 
-        steps = await self.steps.get_workflow_steps(
+        steps = await self.steps.list_for_workflow(
             db,
             workflow_id,
         )

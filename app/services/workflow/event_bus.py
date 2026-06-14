@@ -1,6 +1,6 @@
 import json
 
-from ...repositories.workflow_events import (
+from app.repositories import (
     WorkflowEventRepository,
 )
 
