@@ -1,3 +1,4 @@
+from .agent_runs import AgentRunRepository
 from .chats import ChatRepository
 from .documents import DocumentRepository
 from .messages import MessageRepository
@@ -9,6 +10,7 @@ from .workflow_steps import WorkflowStepRepository
 from .workflows import WorkflowRepository
 
 __all__ = [
+    "AgentRunRepository",
     "ChatRepository",
     "MessageRepository",
     "ProjectRepository",
