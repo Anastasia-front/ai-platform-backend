@@ -2,15 +2,17 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.dependencies import get_owned_workflow
+from app.dependencies import get_owned_workflow, get_workflow_step_run_repository
 from app.repositories import WorkflowStepRepository
 
-steps = WorkflowStepRepository()
 
 async def get_owned_workflow_step(
     step_id: int,
     workflow=Depends(get_owned_workflow),
     db: AsyncSession = Depends(get_db),
+    steps: WorkflowStepRepository = Depends(
+        get_workflow_step_run_repository
+    )
 ):
     step = await steps.get_by_id(db, step_id)
 
