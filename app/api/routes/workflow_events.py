@@ -1,40 +1,33 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.dependencies import get_current_user
+from app.core import get_db
+from app.dependencies import get_owned_workflow_run, get_workflow_event_repository
 from app.repositories import (
     WorkflowEventRepository,
-    WorkflowRunRepository,
 )
 from app.schemas import WorkflowEventResponse
 
 router = APIRouter()
 
-events = WorkflowEventRepository()
-runs = WorkflowRunRepository()
-
+# -------------------------------------------------
+#  GET WORKFLOW EVENTS
+# -------------------------------------------------
 @router.get(
     "/workflow_runs/{run_id}/events",
     response_model=list[WorkflowEventResponse],
 )
 async def get_workflow_events(
-    run_id: int,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    workflow_run=Depends(get_owned_workflow_run),
+    events: WorkflowEventRepository = Depends(
+        get_workflow_event_repository
+    ),
 ):
-    
-    run = await runs.get_by_id(db, run_id)
 
-    if not run:
-        raise HTTPException(
-            status_code=404,
-            detail="Workflow run not found",
-        )
-
-    return await events.get_for_run(
-        db,
-        run_id,
+    return await events.get_for_user_run(
+        db=db,
+        run_id=workflow_run.id,
     )
 
 # 10,000+ events

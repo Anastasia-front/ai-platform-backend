@@ -4,15 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents import AGENTS
-from app.api.routes import messages
-from app.core.database import get_db
-from app.dependencies import get_current_user, get_owned_chat
+from app.core import get_db
+from app.dependencies import get_message_repository, get_owned_chat
 from app.models import Message
+from app.repositories import MessageRepository
 from app.schemas import MessageCreate, MessageResponse
 from app.services import AIService
 
 router = APIRouter()
-
 
 # -------------------------------------------------
 # GET MESSAGES
@@ -22,19 +21,16 @@ router = APIRouter()
     response_model=List[MessageResponse],
 )
 async def get_messages(
-    chat_id: int,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
     chat = Depends(get_owned_chat),
+    messages: MessageRepository = Depends(
+        get_message_repository
+    ),
 ):
-
-    messages_result = await messages.list_for_chat(
+    return await messages.list_for_chat(
         db,
-        chat_id
+        chat.id
     )
-
-    return messages_result
-
 
 # -------------------------------------------------
 # CREATE MESSAGE
@@ -49,6 +45,9 @@ async def create_message(
     payload: MessageCreate,
     db: AsyncSession = Depends(get_db),
     chat = Depends(get_owned_chat),
+    messages: MessageRepository = Depends(
+        get_message_repository
+    ),
 ):
 
     # ---------------------------
@@ -60,7 +59,7 @@ async def create_message(
         content=payload.content,
     )
 
-    db.add(user_msg)
+    await messages.create(db, user_msg)
 
     await db.flush()
 
@@ -75,7 +74,7 @@ async def create_message(
     # --------------------------------
     history = await messages.list_for_chat(
         db,
-        chat_id
+        chat.id
     )
 
 
@@ -106,7 +105,7 @@ async def create_message(
         content=ai_response,
     )
 
-    db.add(assistant_msg)
+    await messages.create(db, assistant_msg)
 
     await db.commit()
 

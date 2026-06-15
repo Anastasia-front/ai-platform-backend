@@ -1,76 +1,15 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.dependencies import get_current_user
-from app.models import Project, Workflow, WorkflowStep
+from app.core import get_db
+from app.dependencies import get_owned_workflow, get_owned_workflow_step
+from app.models import WorkflowStep
+from app.repositories import WorkflowStepRepository
 from app.schemas import WorkflowStepCreate, WorkflowStepResponse
 
 router = APIRouter()
-
-
-# -------------------------------------------------
-# GET WORKFLOW STEPS
-# -------------------------------------------------
-@router.get(
-    "/workflows/{workflow_id}/steps",
-    response_model=List[WorkflowStepResponse],
-)
-async def get_workflow_steps(
-    workflow_id: int,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
-):
-    # --------------------------------
-    # LOAD WORKFLOW
-    # --------------------------------
-    workflow_result = await db.execute(
-        select(Workflow).where(
-            Workflow.id == workflow_id
-        )
-    )
-
-    workflow = workflow_result.scalar_one_or_none()
-
-    if not workflow:
-        raise HTTPException(
-            status_code=404,
-            detail="Workflow not found",
-        )
-
-    # --------------------------------
-    # VERIFY OWNERSHIP
-    # --------------------------------
-    project_result = await db.execute(
-        select(Project).where(
-            Project.id == workflow.project_id
-        )
-    )
-
-    project = project_result.scalar_one_or_none()
-
-    if not project or project.user_id != user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Not allowed",
-        )
-
-    # --------------------------------
-    # LOAD STEPS
-    # --------------------------------
-    result = await db.execute(
-        select(WorkflowStep)
-        .where(
-            WorkflowStep.workflow_id == workflow_id
-        )
-        .order_by(WorkflowStep.step_order)
-    )
-
-    return result.scalars().all()
-
 
 # -------------------------------------------------
 # CREATE WORKFLOW STEP
@@ -81,50 +20,16 @@ async def get_workflow_steps(
     status_code=status.HTTP_201_CREATED,
 )
 async def create_workflow_step(
-    workflow_id: int,
     payload: WorkflowStepCreate,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    workflow=Depends(get_owned_workflow),
+    steps: WorkflowStepRepository = Depends(
+        WorkflowStepRepository
+    ),
 ):
-    # --------------------------------
-    # LOAD WORKFLOW
-    # --------------------------------
-    workflow_result = await db.execute(
-        select(Workflow).where(
-            Workflow.id == workflow_id
-        )
-    )
 
-    workflow = workflow_result.scalar_one_or_none()
-
-    if not workflow:
-        raise HTTPException(
-            status_code=404,
-            detail="Workflow not found",
-        )
-
-    # --------------------------------
-    # VERIFY OWNERSHIP
-    # --------------------------------
-    project_result = await db.execute(
-        select(Project).where(
-            Project.id == workflow.project_id
-        )
-    )
-
-    project = project_result.scalar_one_or_none()
-
-    if not project or project.user_id != user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Not allowed",
-        )
-
-    # --------------------------------
-    # CREATE STEP
-    # --------------------------------
     step = WorkflowStep(
-        workflow_id=workflow_id,
+        workflow_id=workflow.id,
         step_order=payload.step_order,
         name=payload.name,
         prompt_template=payload.prompt_template,
@@ -132,43 +37,50 @@ async def create_workflow_step(
         condition=payload.condition,
     )
 
-    db.add(step)
-
+    await steps.create(db, step)
     await db.commit()
     await db.refresh(step)
 
     return step
 
+# -------------------------------------------------
+#  GET SINGLE WORKFLOW STEP
+# -------------------------------------------------
+@router.get("/workflows/{workflow_id}/steps/{step_id}", response_model=WorkflowStepResponse)
+async def get_step(
+    step=Depends(get_owned_workflow_step),
+):
+    return step
+
+# -------------------------------------------------
+# GET WORKFLOW STEPS
+# -------------------------------------------------
+@router.get(
+    "/workflows/{workflow_id}/steps",
+    response_model=List[WorkflowStepResponse],
+)
+async def list_for_workflow(
+    db: AsyncSession = Depends(get_db),
+    workflow=Depends(get_owned_workflow),
+    steps: WorkflowStepRepository = Depends(
+        WorkflowStepRepository
+    ),
+):
+    return await steps.list_for_workflow(
+        db, 
+        workflow.id,
+    )
 
 # -------------------------------------------------
 # DELETE WORKFLOW STEP
 # -------------------------------------------------
-@router.delete(
-    "/workflows/{workflow_id}/steps/{step_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-async def delete_workflow_step(
-    workflow_id: int,
-    step_id: int,
+@router.delete("/workflows/{workflow_id}/steps/{step_id}")
+async def delete_step(
+    step=Depends(get_owned_workflow_step),
+    steps: WorkflowStepRepository = Depends(
+        WorkflowStepRepository
+    ),
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(WorkflowStep).where(
-            WorkflowStep.id == step_id,
-            WorkflowStep.workflow_id == workflow_id,
-        )
-    )
-
-    step = result.scalar_one_or_none()
-
-    if not step:
-        raise HTTPException(
-            status_code=404,
-            detail="Workflow step not found",
-        )
-
-    await db.delete(step)
+    await steps.delete(db, step)
     await db.commit()
-
-    return None

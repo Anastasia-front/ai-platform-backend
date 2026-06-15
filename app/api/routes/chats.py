@@ -1,52 +1,21 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.routes import chats, projects
-from app.core.database import get_db
-from app.dependencies import get_current_user, get_owned_chat
+from app.core import get_db
+from app.dependencies import (
+    get_chat_repository,
+    get_current_user,
+    get_owned_chat,
+    get_owned_project,
+    get_project_repository,
+)
 from app.models import Chat, User
+from app.repositories import ChatRepository, ProjectRepository
 from app.schemas import ChatCreate, ChatResponse
 
-router = APIRouter(
-    tags=["Chats"],
-)
-
-
-# -------------------------------------------------
-# GET PROJECT CHATS
-# -------------------------------------------------
-@router.get(
-    "/projects/{project_id}/chats",
-    response_model=List[ChatResponse],
-)
-async def get_project_chats(
-    project_id: int,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    # ensure project belongs to user
-    project = await projects.get_for_user(
-        db,
-        project_id,
-        user.id,
-    )
-
-    if not project:
-        raise HTTPException(
-            status_code=404,
-            detail="Project not found",
-        )
-
-    chats_result = await chats.get_for_user(
-        db,
-        project_id,
-        user.id,
-    )
-
-    return chats_result
-
+router = APIRouter()
 
 # -------------------------------------------------
 # CREATE CHAT
@@ -57,37 +26,27 @@ async def get_project_chats(
     status_code=status.HTTP_201_CREATED,
 )
 async def create_chat(
-    project_id: int,
     payload: ChatCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    project = Depends(get_owned_project),
+    projects: ProjectRepository = Depends(
+        get_project_repository
+    ),
 ):
-    # ensure project belongs to user
-    project_result = await projects.get_for_user(
-            db,
-            project_id,
-            user.id,
-        )
-
-    if not project_result:
-        raise HTTPException(
-            status_code=404,
-            detail="Project not found",
-        )
-
     chat = Chat(
-        project_id=project_id,
+        project_id=project.id,
         title=payload.title,
         agent_name=payload.agent_name,
     )
 
-    db.add(chat)
-
+    await projects.create(
+        db,
+        chat
+    )
     await db.commit()
     await db.refresh(chat)
 
     return chat
-
 
 # -------------------------------------------------
 # GET SINGLE CHAT
@@ -101,6 +60,26 @@ async def get_chat(
 ):
     return chat
 
+# -------------------------------------------------
+# GET PROJECT CHATS
+# -------------------------------------------------
+@router.get(
+    "/projects/{project_id}/chats",
+    response_model=List[ChatResponse],
+)
+async def get_project_chats(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    project = Depends(get_owned_project),
+    chats: ChatRepository = Depends(
+        get_chat_repository
+    ),
+):
+    return await chats.get_for_user(
+        db,
+        project.id,
+        user.id,
+    )
 
 # -------------------------------------------------
 # DELETE CHAT
@@ -112,11 +91,14 @@ async def get_chat(
 async def delete_chat(
     db: AsyncSession = Depends(get_db),
     chat = Depends(get_owned_chat),
+    chats: ChatRepository = Depends(
+        get_chat_repository
+    ),
 ):
     await chats.delete(
-    db,
-    chat,
-)
+        db,
+        chat,
+    )
     return {
         "message": "Chat deleted",
     }

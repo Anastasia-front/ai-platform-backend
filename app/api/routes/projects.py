@@ -1,76 +1,79 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.routes import projects
-from app.core.database import get_db
-from app.dependencies import get_current_user
-from app.models import Project
+from app.core import get_db
+from app.dependencies import get_current_user, get_owned_project, get_project_repository
+from app.repositories import ProjectRepository
 from app.schemas import ProjectCreate, ProjectResponse
 
 router = APIRouter()
 
-@router.get("/", response_model=List[ProjectResponse])
-async def get_projects(
-    db: AsyncSession = Depends(get_db),
-    user = Depends(get_current_user),
-):
-    result = await db.execute(
-        select(Project).where(Project.user_id == user.id)
-    )
-    return result.scalars().all()
-
+# -------------------------------------------------
+# CREATE PROJECT
+# -------------------------------------------------
 @router.post("/", response_model=ProjectResponse)
 async def create_project(
     payload: ProjectCreate,
     db: AsyncSession = Depends(get_db),
     user = Depends(get_current_user),
+    projects: ProjectRepository = Depends(
+        get_project_repository
+    ),
 ):
-    project = Project(
-        name=payload.name,
-        description=payload.description,
+    project = await projects.create(
+        db=db,
+        **payload.model_dump(),
         user_id=user.id,
     )
-
-    db.add(project)
     await db.commit()
     await db.refresh(project)
 
     return project
 
+# -------------------------------------------------
+#  GET SINGLE PROJECT
+# -------------------------------------------------
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(
-    project_id: int,
-    db: AsyncSession = Depends(get_db),
-    user = Depends(get_current_user),
+    project = Depends(get_owned_project),
 ):
-    project = await projects.get_for_user(
-        db,
-        project_id,
-        user.id,
-    )
-
-    if not project:
-        raise HTTPException(404, "Project not found")
-
     return project
 
-@router.delete("/{project_id}")
-async def delete_project(
-    project_id: int,
+# -------------------------------------------------
+#  GET PROJECTS
+# -------------------------------------------------
+@router.get("/", response_model=List[ProjectResponse])
+async def get_projects(
     db: AsyncSession = Depends(get_db),
     user = Depends(get_current_user),
-):
-    project = await projects.get_for_user(
-        db,
-        project_id,
-        user.id,
+    projects: ProjectRepository = Depends(
+        get_project_repository
     )
+):
+    return await projects.list_for_user(
+        db,
+        user.id,
+    )   
 
-    if not project:
-        raise HTTPException(404, "Project not found")
-
-    await db.delete(project)
+# -------------------------------------------------
+# DELETE PROJECT
+# -------------------------------------------------
+@router.delete("/{project_id}")
+async def delete_project(
+    db: AsyncSession = Depends(get_db),
+    project = Depends(get_owned_project),
+    projects: ProjectRepository = Depends(
+        get_project_repository
+    ),
+):
+    await projects.delete(
+    db,
+    project,
+)
     await db.commit()
+
+    return {
+        "message": "Project deleted",
+    }

@@ -3,8 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.core.security import create_access_token
+from app.core import create_access_token, get_db
 from app.dependencies import get_current_user
 from app.models import User
 from app.schemas import RegisterRequest, UserResponse
@@ -12,9 +11,18 @@ from app.services import authenticate_user, create_user
 
 router = APIRouter()
 
-
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db)):
+# -------------------------------------------------
+# REGISTER USER
+# -------------------------------------------------
+@router.post(
+    "/register", 
+    response_model=UserResponse, 
+    status_code=status.HTTP_201_CREATED
+    )
+async def register(
+    payload: RegisterRequest, 
+    db: AsyncSession = Depends(get_db)
+):
     user = await create_user(db, payload.email, payload.password)
 
     return UserResponse(
@@ -23,6 +31,9 @@ async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db))
         created_at=user.created_at,
     )
 
+# -------------------------------------------------
+# LOGIN USER
+# -------------------------------------------------
 @router.post("/login")
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
@@ -40,7 +51,9 @@ async def login(
         "token_type": "bearer",
     }
 
-
+# -------------------------------------------------
+# GET CURRENT USER
+# -------------------------------------------------
 @router.get("/me", response_model=UserResponse)
 async def get_me(user: User = Depends(get_current_user)):
     return UserResponse(

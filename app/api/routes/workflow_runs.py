@@ -1,72 +1,32 @@
-from fastapi import APIRouter, Depends, HTTPException
+
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.dependencies import get_current_user, get_workflow_service
-from app.models import workflow_run
-from app.repositories import WorkflowRunRepository
-from app.schemas import WorkflowRunRequest, WorkflowRunResponse
+from app.dependencies import (
+    get_owned_workflow_run,
+    get_workflow_service,
+)
+from app.schemas import WorkflowRunResponse
 from app.services import WorkflowService
 
 router = APIRouter()
 
-
-runs = WorkflowRunRepository()
-
-
+# -------------------------------------------------
+#  GET SINGLE WORKFLOW RUN
+# -------------------------------------------------
 @router.get(
     "/workflow_runs/{run_id}",
     response_model=WorkflowRunResponse,
 )
 async def get_workflow_run(
-    run_id: int,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    workflow_run=Depends(get_owned_workflow_run),
 ):
-
-    workflow_run = await runs.get_by_id(
-        db,
-        run_id,
-    )
-
-    if not workflow_run:
-        raise HTTPException(
-            status_code=404,
-            detail="Workflow run not found",
-        )
-
     return workflow_run
 
-
-@router.post(
-    "/workflow_runs/{workflow_id}/run",
-    response_model=WorkflowRunResponse,
-)
-async def run_workflow(
-    workflow_id: int,
-    payload: WorkflowRunRequest,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
-    service: WorkflowService = Depends(
-        get_workflow_service
-    ),
-):
-
-    output = await service.run_workflow(
-        db=db,
-        workflow_id=workflow_id,
-        user_input=payload.input,
-    )
-
-    return WorkflowRunResponse(
-        workflow_id=workflow_id,
-        input=payload.input,
-        output=output,
-        created_at=None,  # optional improvement later
-    )
-
-
-
+# -------------------------------------------------
+#  RESUME WORKFLOW RUN
+# -------------------------------------------------
 @router.post(
     ("/workflow_runs/{run_id}/resume"),
     response_model=WorkflowRunResponse,
@@ -74,7 +34,7 @@ async def run_workflow(
 async def resume_workflow(
     run_id: int,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    workflow_run=Depends(get_owned_workflow_run),
     service: WorkflowService = Depends(get_workflow_service),
 ):
     output = await service.resume_workflow(

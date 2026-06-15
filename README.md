@@ -574,11 +574,11 @@ Expected:
 ```
 4.1 Run streaming endpoint
 
-                  POST /workflows/{workflow_id}/stream
+                  POST /workflows/{workflow_id}/runs/stream
 
 4.2 Use curl to verify SSE
 
-                  curl -N http://localhost:8000/workflows/2/stream \
+                  curl -N http://localhost:8000/workflows/2/runs/stream \
                   -H "Content-Type: application/json" \
                   -d '{"input":"test streaming workflow"}'
 
@@ -749,6 +749,7 @@ event_bus.py         -> SSE + events
 - Layer 2 — Runtime Engine - scheduler - executor - retry manager - timeout manager - event bus - parallel runner
 - Layer 3 — Agent Runtime - tool calls - memory - context - reflection - routing - planning
 
+```
 workflow/
 ├── workflow.py # orchestration
 ├── dag_engine.py # scheduler
@@ -758,6 +759,7 @@ workflow/
 │ ├── workflow_runs.py
 │ ├── workflow_steps.py
 │ └── workflow_events.py
+```
 
 Production version is to build tasks explicitly:
 
@@ -790,4 +792,18 @@ Server crashes
 Restart
 ↓
 Resume from Step 3
+```
+
+Attach ownership from the moment the run is created:
+
+```
+Route
+ └── get_current_user()
+      └── user.id
+            ↓
+WorkflowService.run_workflow(user_id)
+            ↓
+WorkflowRunRepository.create(user_id)
+            ↓
+WorkflowRun.user_id saved
 ```

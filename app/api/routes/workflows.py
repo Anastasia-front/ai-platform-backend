@@ -1,16 +1,19 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.responses import StreamingResponse
 
-from app.api.routes import projects
-from app.core.database import get_db
-from app.dependencies import get_current_user
-from app.dependencies.workflow import get_workflow_service
+from app.core import get_db
+from app.dependencies import (
+    get_owned_workflow,
+    get_workflow_repository,
+    get_workflow_service,
+)
 from app.enums import WorkflowRunStatus
-from app.models import Project, Workflow
+from app.models import Workflow
+from app.repositories import WorkflowRepository
 from app.schemas import (
     WorkflowCreate,
     WorkflowResponse,
@@ -20,38 +23,6 @@ from app.schemas import (
 from app.services import WorkflowService
 
 router = APIRouter()
-
-
-# -------------------------------------------------
-# GET WORKFLOWS
-# -------------------------------------------------
-@router.get(
-    "/projects/{project_id}/workflows",
-    response_model=List[WorkflowResponse],
-)
-async def get_workflows(
-    project_id: int,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
-):
-    project= await projects.get_for_user(
-        db,
-        project_id,
-        user.id,
-    )
-
-    if not project:
-        raise HTTPException(
-            status_code=404,
-            detail="Project not found",
-        )
-
-    result = await db.execute(
-        select(Workflow).where(Workflow.project_id == project_id)
-    )
-
-    return result.scalars().all()
-
 
 # -------------------------------------------------
 # CREATE WORKFLOW
@@ -65,32 +36,24 @@ async def create_workflow(
     project_id: int,
     payload: WorkflowCreate,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    workflows: WorkflowRepository = Depends(
+        get_workflow_repository
+    ),
 ):
-    project = await projects.get_for_user(
-        db,
-        project_id,
-        user.id,
-    )
-
-    if not project:
-        raise HTTPException(
-            status_code=404,
-            detail="Project not found",
-        )
-
     workflow = Workflow(
         project_id=project_id,
         name=payload.name,
         status=WorkflowRunStatus.RUNNING,
     )
 
-    db.add(workflow)
+    await workflows.create(
+        db,
+        workflow
+    )
     await db.commit()
     await db.refresh(workflow)
 
     return workflow
-
 
 # -------------------------------------------------
 # GET SINGLE WORKFLOW
@@ -100,136 +63,90 @@ async def create_workflow(
     response_model=WorkflowResponse,
 )
 async def get_workflow(
-    workflow_id: int,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    workflow=Depends(get_owned_workflow),
 ):
-    result = await db.execute(
-        select(Workflow).where(Workflow.id == workflow_id)
-    )
-
-    workflow = result.scalar_one_or_none()
-
-    if not workflow:
-        raise HTTPException(
-            status_code=404,
-            detail="Workflow not found",
-        )
-
-    project_result = await db.execute(
-        select(Project).where(Project.id == workflow.project_id)
-    )
-
-    project = project_result.scalar_one_or_none()
-
-    if not project or project.user_id != user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Not allowed",
-        )
-
     return workflow
 
+# -------------------------------------------------
+# GET WORKFLOWS
+# -------------------------------------------------
+@router.get(
+    "/projects/{project_id}/workflows",
+    response_model=List[WorkflowResponse],
+)
+async def get_workflows(
+    project_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    return await WorkflowRepository.list_for_project(
+        db,
+        project_id,
+    )
 
-    # -------------------------------------------------
-    # DELETE WORKFLOW
-    # -------------------------------------------------
+# -------------------------------------------------
+# DELETE WORKFLOW
+# -------------------------------------------------
 @router.delete(
     "/workflows/{workflow_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
+    status_code=204,
 )
 async def delete_workflow(
-    workflow_id: int,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    workflow = Depends(get_owned_workflow),
+    workflows: WorkflowRepository = Depends(
+        get_workflow_repository
+    ),
 ):
-    result = await db.execute(
-        select(Workflow).where(Workflow.id == workflow_id)
-    )
-
-    workflow = result.scalar_one_or_none()
-
-    if not workflow:
-        raise HTTPException(
-            status_code=404,
-            detail="Workflow not found",
-        )
-
-    project_result = await db.execute(
-        select(Project).where(Project.id == workflow.project_id)
-    )
-
-    project = project_result.scalar_one_or_none()
-
-    if not project or project.user_id != user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Not allowed",
-        )
-
-    await db.delete(workflow)
-    await db.commit()
+    await workflows.delete(workflow)
 
     return None
 
-
-
 # -------------------------------------------------
-# EXECUTION ROUTE
+#  CREATE WORKFLOW RUN
 # -------------------------------------------------
-
-
 @router.post(
     "/workflows/{workflow_id}/run",
     response_model=WorkflowRunResponse,
 )
 async def run_workflow(
-    workflow_id: int,
     payload: WorkflowRunRequest,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
-    service: WorkflowService = Depends(
-    get_workflow_service
-)
+    service: WorkflowService  = Depends(
+        get_workflow_service,
+    ),
+    workflow=Depends(get_owned_workflow),
 ):
-    # 1. load workflow
-    result = await db.execute(
-        select(Workflow).where(Workflow.id == workflow_id)
-    )
-
-    workflow = result.scalar_one_or_none()
-
-    if not workflow:
-        raise HTTPException(
-            status_code=404,
-            detail="Workflow not found",
-        )
-
-    # 2. ownership check
-    project_result = await db.execute(
-        select(Project).where(Project.id == workflow.project_id)
-    )
-
-    project = project_result.scalar_one_or_none()
-
-    if not project or project.user_id != user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Not allowed",
-        )
-
-    # 3. execute workflow
     output = await service.run_workflow(
         db=db,
-        workflow_id=workflow_id,
+        workflow_id=workflow.id,
         user_input=payload.input,
     )
 
-    # 4. response
     return WorkflowRunResponse(
-        workflow_id=workflow_id,
+        workflow_id=workflow.id,
         input=payload.input,
         output=output,
-        created_at=datetime.now(timezone.utc),
-    )
+        created_at=datetime.now(datetime.timezone.utc),
+    )   
 
+# -------------------------------------------------
+# STREAMING ROUTE
+# -------------------------------------------------
+@router.post("/workflows/{workflow_id}/runs/stream")
+async def run_workflow_stream(
+    payload: WorkflowRunRequest,
+    db: AsyncSession = Depends(get_db),
+    workflow=Depends(get_owned_workflow),
+    service: WorkflowService  = Depends(get_workflow_service),
+):
+    async def event_generator():
+        async for event in service.run_workflow_stream(
+            db=db,
+            workflow_id=workflow.id,
+            user_input=payload.input,
+        ):
+            yield event
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+    )

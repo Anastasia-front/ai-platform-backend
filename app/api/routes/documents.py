@@ -1,14 +1,16 @@
 import os
 from typing import List
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, File, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.routes import projects
-from app.core.database import get_db
-from app.dependencies import get_current_user
+from app.core import get_db
+from app.dependencies import (
+    get_document_repository,
+    get_owned_project,
+)
 from app.models import Document
+from app.repositories import DocumentRepository
 from app.schemas import DocumentResponse
 
 router = APIRouter()
@@ -25,25 +27,13 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
     response_model=List[DocumentResponse],
 )
 async def get_documents(
-    project_id: int,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    project=Depends(get_owned_project),
+    documents: DocumentRepository = Depends(
+        get_document_repository
+    ),
 ):
-    project = await projects.get_for_user(
-        db,
-        project_id,
-        user.id,
-    )
-
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    result = await db.execute(
-        select(Document).where(Document.project_id == project_id)
-    )
-
-    return result.scalars().all()
-
+    return await documents.list_for_project(project.id, db)
 
 # -------------------------------------------------
 # UPLOAD DOCUMENT
@@ -54,21 +44,13 @@ async def get_documents(
     status_code=status.HTTP_201_CREATED,
 )
 async def upload_document(
-    project_id: int,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    project=Depends(get_owned_project),
+    documents: DocumentRepository = Depends(
+        get_document_repository
+    ),
 ):
-    # verify ownership
-    project_result = await projects.get_for_user(
-        db,
-        project_id,
-        user.id,
-    )
-
-    if not project_result:
-        raise HTTPException(status_code=404, detail="Project not found")
-
     # save file locally
     file_path = os.path.join(UPLOAD_DIR, file.filename)
 
@@ -76,13 +58,13 @@ async def upload_document(
         f.write(await file.read())
 
     document = Document(
-        project_id=project_id,
+        project_id=project.id,
         filename=file.filename,
         filepath=file_path,
         status="uploaded",
     )
 
-    db.add(document)
+    document = await documents.create(db, document)
     await db.commit()
     await db.refresh(document)
 
