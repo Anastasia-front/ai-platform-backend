@@ -8,7 +8,34 @@ from app.models import (
 
 class WorkflowStepRepository:
 
-    async def get_workflow_steps(
+    async def create(
+        self,
+        db: AsyncSession,
+        **data,
+    ):
+        step = WorkflowStep(**data)
+
+        db.add(step)
+
+        await db.flush()
+
+        return step
+
+    async def get_by_id(
+        self,
+        db: AsyncSession,
+        step_id: int,
+    ):
+        result = await db.execute(
+            select(WorkflowStep).where(
+                WorkflowStep.id == step_id
+            )
+        )
+
+        return result.scalar_one_or_none()
+
+
+    async def list_for_workflow(
         self,
         db: AsyncSession,
         workflow_id: int,
@@ -26,3 +53,12 @@ class WorkflowStepRepository:
         )
 
         return result.scalars().all()
+    
+    async def delete(
+        self,
+        db: AsyncSession,
+        step: WorkflowStep,
+    ):
+        await db.delete(step)
+
+        await db.flush()
