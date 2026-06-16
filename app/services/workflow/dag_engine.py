@@ -9,7 +9,8 @@ from app.repositories import (
     WorkflowStepRepository,
     WorkflowStepRunRepository,
 )
-from app.services.workflow import AIExecutor, EventBus
+from app.services.workflow.ai_executor import AIExecutor
+from app.services.workflow.event_bus import EventBus
 
 
 class DAGEngine:

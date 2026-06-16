@@ -9,7 +9,7 @@ from app.dependencies import (
     get_owned_workflow,
 )
 from app.enums import AgentRunStatus
-from app.models import AgentRun
+from app.models import AgentRun, Workflow
 from app.repositories import AgentRunRepository
 from app.schemas import AgentRunCreate, AgentRunResponse
 
@@ -26,7 +26,7 @@ router = APIRouter()
 async def run_agent(
     payload: AgentRunCreate,
     db: AsyncSession = Depends(get_db),
-    workflow=Depends(get_owned_workflow),
+    workflow: Workflow =Depends(get_owned_workflow),
     agent_runs: AgentRunRepository = Depends(
         get_agent_run_repository
     ),
@@ -52,6 +52,6 @@ async def run_agent(
     response_model=AgentRunResponse,
 )
 async def get_agent_run(
-    agent_run=Depends(get_owned_agent_run),
+    agent_run: AgentRun = Depends(get_owned_agent_run),
 ):
     return agent_run

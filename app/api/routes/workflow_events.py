@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import get_db
 from app.dependencies import get_owned_workflow_run, get_workflow_event_repository
+from app.models import WorkflowRun
 from app.repositories import (
     WorkflowEventRepository,
 )
@@ -19,7 +20,7 @@ router = APIRouter()
 )
 async def get_workflow_events(
     db: AsyncSession = Depends(get_db),
-    workflow_run=Depends(get_owned_workflow_run),
+    workflow_run: WorkflowRun =Depends(get_owned_workflow_run),
     events: WorkflowEventRepository = Depends(
         get_workflow_event_repository
     ),

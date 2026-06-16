@@ -7,7 +7,7 @@ from app.core import create_access_token, get_db
 from app.dependencies import get_current_user
 from app.models import User
 from app.schemas import RegisterRequest, UserResponse
-from app.services import authenticate_user, create_user
+from app.services import AuthService
 
 router = APIRouter()
 
@@ -23,7 +23,7 @@ async def register(
     payload: RegisterRequest, 
     db: AsyncSession = Depends(get_db)
 ):
-    user = await create_user(db, payload.email, payload.password)
+    user = await AuthService.create_user(db, payload.email, payload.password)
 
     return UserResponse(
         id=user.id,
@@ -39,7 +39,7 @@ async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
-    user = await authenticate_user(db, form_data.username, form_data.password)
+    user = await AuthService.authenticate_user(db, form_data.username, form_data.password)
 
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")

@@ -3,8 +3,7 @@ from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.core.security import decode_access_token, oauth2_scheme
+from app.core import decode_access_token, get_db, oauth2_scheme
 from app.models import User
 
 

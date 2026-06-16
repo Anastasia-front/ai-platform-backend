@@ -1,18 +1,19 @@
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.dependencies import get_current_user
+from app.core import get_db
+from app.dependencies.auth import get_current_user
 from app.dependencies.repositories import (
     get_agent_run_repository,
 )
+from app.models import User
 from app.repositories import AgentRunRepository
 
 
 async def get_owned_agent_run(
     agent_run_id: int,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user: User = Depends(get_current_user),
     runs: AgentRunRepository = Depends(
         get_agent_run_repository,
     ),

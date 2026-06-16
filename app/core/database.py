@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 
-from app.core import settings
+from app.core.config import settings
 
 
 class Base(DeclarativeBase):
@@ -30,3 +30,16 @@ AsyncSessionLocal = async_sessionmaker(
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         yield session
+
+# await db.commit() must be only in routes/services
+
+# and this gives:
+
+# Clear transaction boundaries
+# Easy rollback
+# Multiple repository operations in one transaction
+# Predictable behavior
+
+# A good rule is:
+
+# Repositories manipulate entities. Services/routes decide when a transaction is committed.
