@@ -2,21 +2,29 @@ from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.dependencies import get_owned_workflow, get_workflow_step_run_repository
+from app.dependencies.auth import get_current_user
+from app.dependencies.repositories import get_workflow_step_repository
+from app.models import User
 from app.repositories import WorkflowStepRepository
 
 
 async def get_owned_workflow_step(
     step_id: int,
-    workflow=Depends(get_owned_workflow),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     steps: WorkflowStepRepository = Depends(
-        get_workflow_step_run_repository
-    )
+        get_workflow_step_repository
+    ),
 ):
-    step = await steps.get_by_id(db, step_id)
+    step = await steps.get_for_user(db, step_id, user.id)
 
-    if not step or step.workflow_id != workflow.id:
+    if not step:
+        raise HTTPException(
+            status_code=404,
+            detail="Workflow step not found",
+        )
+
+    if step.workflow.project.user_id != user.id:
         raise HTTPException(
             status_code=404,
             detail="Workflow step not found",
