@@ -7,6 +7,7 @@ from app.repositories import (
     WorkflowEventRepository,
     WorkflowRepository,
     WorkflowRunRepository,
+    WorkflowStepRepository,
     WorkflowStepRunRepository,
 )
 
@@ -28,6 +29,9 @@ def get_workflow_repository():
 
 def get_workflow_run_repository():
     return WorkflowRunRepository()
+
+def get_workflow_step_repository():
+    return WorkflowStepRepository()
 
 def get_workflow_step_run_repository():
     return WorkflowStepRunRepository()

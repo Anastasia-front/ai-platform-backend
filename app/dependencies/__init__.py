@@ -11,6 +11,7 @@ from .repositories import (
     get_workflow_event_repository,
     get_workflow_repository,
     get_workflow_run_repository,
+    get_workflow_step_repository,
     get_workflow_step_run_repository,
 )
 from .workflow import get_owned_workflow, get_workflow_service
@@ -34,5 +35,6 @@ __all__ = [
     "get_workflow_repository",
     "get_workflow_run_repository",
     "get_workflow_service",
+    "get_workflow_step_repository",
     "get_workflow_step_run_repository",
 ]
