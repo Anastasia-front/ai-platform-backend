@@ -11,13 +11,11 @@ class WorkflowRunRepository:
         self,
         db: AsyncSession,
         workflow_id: int,
-        user_id: int,
         user_input: str,
     ) -> WorkflowRun:
 
         workflow_run = WorkflowRun(
             workflow_id=workflow_id,
-            user_id=user_id,
             input=user_input,
             status= WorkflowRunStatus.RUNNING,
         )
