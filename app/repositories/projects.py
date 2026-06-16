@@ -9,12 +9,11 @@ class ProjectRepository:
     async def create(
         self,
         db: AsyncSession,
-        **data,
+        project: Project,
+        user_id:int,
     ):
-        project = Project(**data)
-
+        project.user_id = user_id
         db.add(project)
-
         await db.flush()
 
         return project

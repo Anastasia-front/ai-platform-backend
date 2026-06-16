@@ -9,12 +9,9 @@ class MessageRepository:
     async def create(
         self,
         db: AsyncSession,
-        **data,
+        message: Message
     ):
-        message = Message(**data)
-
         db.add(message)
-
         await db.flush()
 
         return message

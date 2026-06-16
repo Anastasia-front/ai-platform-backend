@@ -9,12 +9,9 @@ class DocumentRepository:
     async def create(
         self,
         db: AsyncSession,
-        **data,
+        document: Document,
     ):
-        document = Document(**data)
-
         db.add(document)
-
         await db.flush()
 
         return document

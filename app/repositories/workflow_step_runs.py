@@ -10,15 +10,9 @@ class WorkflowStepRunRepository:
     async def create(
         self,
         db: AsyncSession,
-        **data,
+        run: WorkflowStepRun
     ):
-
-        run = WorkflowStepRun(
-            **data
-        )
-
         db.add(run)
-
         await db.flush()
 
         return run

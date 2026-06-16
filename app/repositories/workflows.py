@@ -9,12 +9,9 @@ class WorkflowRepository:
     async def create(
         self,
         db: AsyncSession,
-        **data,
+        workflow: Workflow
     ):
-        workflow = Workflow(**data)
-
         db.add(workflow)
-
         await db.flush()
 
         return workflow

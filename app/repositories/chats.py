@@ -7,17 +7,15 @@ from app.models import Chat, Project
 class ChatRepository:
 
     async def create(
-        self,
-        db: AsyncSession,
-        **data,
-    ):
-        chat = Chat(**data)
+            self,
+            db: AsyncSession,
+            chat: Chat,
+        ):
+            db.add(chat)
 
-        db.add(chat)
+            await db.flush()
 
-        await db.flush()
-
-        return chat
+            return chat
 
     async def get_for_user(
         self,

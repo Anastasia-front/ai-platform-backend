@@ -9,10 +9,8 @@ class AgentRunRepository:
     async def create(
         self,
         db: AsyncSession,
-        **data,
+        agent_run: AgentRun
     ):
-        agent_run = AgentRun(**data)
-
         db.add(agent_run)
 
         await db.flush()
