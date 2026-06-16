@@ -17,10 +17,22 @@ class AIService:
     async def generate_chat_response(
         self,
         messages: list[dict],
+        system_prompt: str | None = None,
         model: str | None = None,
     ) -> str:
 
         used_model = model or self.model
+
+        ollama_messages = messages
+
+        if system_prompt:
+            ollama_messages = [
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                *messages,
+            ]
 
         async with httpx.AsyncClient() as client:
             try:
@@ -28,26 +40,29 @@ class AIService:
                     f"{self.base_url}/api/chat",
                     json={
                         "model": used_model,
-                        "messages": messages,
+                        "messages": ollama_messages,
                         "stream": False,
                     },
                     timeout=120,
                 )
                 response.raise_for_status()
+
                 data = response.json()
+
                 return data["message"]["content"]
 
             except Exception:
-                # fallback model attempt
                 response = await client.post(
                     f"{self.base_url}/api/chat",
                     json={
                         "model": self.fallback_model,
-                        "messages": messages,
+                        "messages": ollama_messages,
                         "stream": False,
                     },
                     timeout=120,
                 )
                 response.raise_for_status()
+
                 data = response.json()
+
                 return data["message"]["content"]
