@@ -1,16 +1,12 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import AgentRun, WorkflowRun
+from app.models import AgentRun, Project, Workflow, WorkflowRun
 
 
 class AgentRunRepository:
 
-    async def create(
-        self,
-        db: AsyncSession,
-        agent_run: AgentRun
-    ):
+    async def create(self, db: AsyncSession, agent_run: AgentRun):
         db.add(agent_run)
 
         await db.flush()
@@ -22,14 +18,10 @@ class AgentRunRepository:
         db: AsyncSession,
         agent_run_id: int,
     ):
-        result = await db.execute(
-            select(AgentRun).where(
-                AgentRun.id == agent_run_id
-            )
-        )
+        result = await db.execute(select(AgentRun).where(AgentRun.id == agent_run_id))
 
         return result.scalar_one_or_none()
-    
+
     async def get_for_user(
         self,
         db: AsyncSession,
@@ -40,11 +32,19 @@ class AgentRunRepository:
             select(AgentRun)
             .join(
                 WorkflowRun,
-                WorkflowRun.id == AgentRun.workflow_run_id,
+                WorkflowRun.id == AgentRun.workflow_id,
+            )
+            .join(
+                Workflow,
+                Workflow.id == WorkflowRun.workflow_id,
+            )
+            .join(
+                Project,
+                Project.id == Workflow.project_id,
             )
             .where(
                 AgentRun.id == agent_run_id,
-                WorkflowRun.user_id == user_id,
+                Project.user_id == user_id,
             )
         )
 
@@ -57,10 +57,7 @@ class AgentRunRepository:
     ):
         result = await db.execute(
             select(AgentRun)
-            .where(
-                AgentRun.workflow_run_id
-                == workflow_run_id
-            )
+            .where(AgentRun.workflow_run_id == workflow_run_id)
             .order_by(AgentRun.id.asc())
         )
 

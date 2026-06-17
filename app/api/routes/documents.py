@@ -9,7 +9,7 @@ from app.dependencies import (
     get_document_repository,
     get_owned_project,
 )
-from app.models import Document
+from app.models import Document, Project
 from app.repositories import DocumentRepository
 from app.schemas import DocumentResponse
 
@@ -23,30 +23,30 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # GET DOCUMENTS
 # -------------------------------------------------
 @router.get(
-    "/projects/{project_id}/documents",
+    "/{project_id}/documents",
     response_model=List[DocumentResponse],
 )
 async def get_documents(
     db: AsyncSession = Depends(get_db),
-    project=Depends(get_owned_project),
+    project: Project = Depends(get_owned_project),
     documents: DocumentRepository = Depends(
         get_document_repository
     ),
 ):
-    return await documents.list_for_project(project.id, db)
+    return await documents.list_for_project(db, project.id)
 
 # -------------------------------------------------
 # UPLOAD DOCUMENT
 # -------------------------------------------------
 @router.post(
-    "/projects/{project_id}/documents",
+    "/{project_id}/documents",
     response_model=DocumentResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def upload_document(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    project=Depends(get_owned_project),
+    project: Project = Depends(get_owned_project),
     documents: DocumentRepository = Depends(
         get_document_repository
     ),

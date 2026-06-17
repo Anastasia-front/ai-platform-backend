@@ -7,7 +7,6 @@ from app.api.routes import (
     documents,
     messages,
     projects,
-    workflow_events,
     workflow_runs,
     workflow_steps,
     workflows,
@@ -17,11 +16,13 @@ router = APIRouter()
 
 router.include_router(
     auth.router,
+    prefix="/auth",
     tags=["Auth"],
 )
 
 router.include_router(
     projects.router,
+    prefix="/projects",
     tags=["Projects"],
 )
 
@@ -32,6 +33,7 @@ router.include_router(
 
 router.include_router(
     messages.router,
+    prefix="/chats",
     tags=["Messages"],
 )
 
@@ -51,16 +53,12 @@ router.include_router(
 )
 
 router.include_router(
-    workflow_events.router,
-    tags=["Workflow Events"],
-)
-
-router.include_router(
     agent_runs.router,
     tags=["Agent Runs"],
 )
 
 router.include_router(
     documents.router,
+    prefix="/projects",
     tags=["Documents"],
 )

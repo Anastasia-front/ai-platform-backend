@@ -4,8 +4,12 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import get_db
-from app.dependencies import get_owned_workflow, get_owned_workflow_step
-from app.models import WorkflowStep
+from app.dependencies import (
+    get_owned_workflow,
+    get_owned_workflow_step,
+    get_workflow_step_repository,
+)
+from app.models import Workflow, WorkflowStep
 from app.repositories import WorkflowStepRepository
 from app.schemas import WorkflowStepCreate, WorkflowStepResponse
 
@@ -22,9 +26,9 @@ router = APIRouter()
 async def create_workflow_step(
     payload: WorkflowStepCreate,
     db: AsyncSession = Depends(get_db),
-    workflow=Depends(get_owned_workflow),
+    workflow: Workflow= Depends(get_owned_workflow),
     steps: WorkflowStepRepository = Depends(
-        WorkflowStepRepository
+        get_workflow_step_repository
     ),
 ):
 
@@ -46,9 +50,12 @@ async def create_workflow_step(
 # -------------------------------------------------
 #  GET SINGLE WORKFLOW STEP
 # -------------------------------------------------
-@router.get("/workflows/{workflow_id}/steps/{step_id}", response_model=WorkflowStepResponse)
+@router.get(
+    "/steps/{step_id}", 
+    response_model=WorkflowStepResponse
+)
 async def get_step(
-    step=Depends(get_owned_workflow_step),
+    step: WorkflowStep = Depends(get_owned_workflow_step),
 ):
     return step
 
@@ -61,9 +68,9 @@ async def get_step(
 )
 async def list_for_workflow(
     db: AsyncSession = Depends(get_db),
-    workflow=Depends(get_owned_workflow),
+    workflow: Workflow = Depends(get_owned_workflow),
     steps: WorkflowStepRepository = Depends(
-        WorkflowStepRepository
+        get_workflow_step_repository
     ),
 ):
     return await steps.list_for_workflow(
@@ -74,13 +81,16 @@ async def list_for_workflow(
 # -------------------------------------------------
 # DELETE WORKFLOW STEP
 # -------------------------------------------------
-@router.delete("/workflows/{workflow_id}/steps/{step_id}")
+@router.delete(
+    "/steps/{step_id}", 
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def delete_step(
-    step=Depends(get_owned_workflow_step),
-    steps: WorkflowStepRepository = Depends(
-        WorkflowStepRepository
-    ),
     db: AsyncSession = Depends(get_db),
+    step: WorkflowStep = Depends(get_owned_workflow_step),
+    steps: WorkflowStepRepository = Depends(
+        get_workflow_step_repository
+    ),
 ):
     await steps.delete(db, step)
     await db.commit()

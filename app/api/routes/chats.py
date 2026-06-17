@@ -9,10 +9,9 @@ from app.dependencies import (
     get_current_user,
     get_owned_chat,
     get_owned_project,
-    get_project_repository,
 )
-from app.models import Chat, User
-from app.repositories import ChatRepository, ProjectRepository
+from app.models import Chat, Project, User
+from app.repositories import ChatRepository
 from app.schemas import ChatCreate, ChatResponse
 
 router = APIRouter()
@@ -28,9 +27,9 @@ router = APIRouter()
 async def create_chat(
     payload: ChatCreate,
     db: AsyncSession = Depends(get_db),
-    project = Depends(get_owned_project),
-    projects: ProjectRepository = Depends(
-        get_project_repository
+    project: Project = Depends(get_owned_project),
+    chats: ChatRepository = Depends(
+        get_chat_repository
     ),
 ):
     chat = Chat(
@@ -39,7 +38,7 @@ async def create_chat(
         agent_name=payload.agent_name,
     )
 
-    await projects.create(
+    await chats.create(
         db,
         chat
     )
@@ -56,7 +55,7 @@ async def create_chat(
     response_model=ChatResponse,
 )
 async def get_chat(
-    chat = Depends(get_owned_chat),
+    chat: Chat = Depends(get_owned_chat),
 ):
     return chat
 
@@ -70,12 +69,12 @@ async def get_chat(
 async def get_project_chats(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-    project = Depends(get_owned_project),
+    project: Project = Depends(get_owned_project),
     chats: ChatRepository = Depends(
         get_chat_repository
     ),
 ):
-    return await chats.get_for_user(
+    return await chats.list_for_project(
         db,
         project.id,
         user.id,
@@ -86,11 +85,11 @@ async def get_project_chats(
 # -------------------------------------------------
 @router.delete(
     "/chats/{chat_id}",
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_chat(
     db: AsyncSession = Depends(get_db),
-    chat = Depends(get_owned_chat),
+    chat: Chat = Depends(get_owned_chat),
     chats: ChatRepository = Depends(
         get_chat_repository
     ),
@@ -99,6 +98,4 @@ async def delete_chat(
         db,
         chat,
     )
-    return {
-        "message": "Chat deleted",
-    }
+    await db.commit()

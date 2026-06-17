@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agents import AGENTS
 from app.core import get_db
 from app.dependencies import get_message_repository, get_owned_chat
-from app.models import Message
+from app.models import Chat, Message
 from app.repositories import MessageRepository
 from app.schemas import MessageCreate, MessageResponse
 from app.services import AIService
@@ -17,12 +17,12 @@ router = APIRouter()
 # GET MESSAGES
 # -------------------------------------------------
 @router.get(
-    "/chats/{chat_id}/messages",
+    "/{chat_id}/messages",
     response_model=List[MessageResponse],
 )
 async def get_messages(
     db: AsyncSession = Depends(get_db),
-    chat = Depends(get_owned_chat),
+    chat: Chat = Depends(get_owned_chat),
     messages: MessageRepository = Depends(
         get_message_repository
     ),
@@ -36,7 +36,7 @@ async def get_messages(
 # CREATE MESSAGE
 # -------------------------------------------------
 @router.post(
-    "/chats/{chat_id}/messages",
+    "/{chat_id}/messages",
     response_model=List[MessageResponse],
     status_code=status.HTTP_201_CREATED,
 )
@@ -44,7 +44,7 @@ async def create_message(
     chat_id: int,
     payload: MessageCreate,
     db: AsyncSession = Depends(get_db),
-    chat = Depends(get_owned_chat),
+    chat:Chat = Depends(get_owned_chat),
     messages: MessageRepository = Depends(
         get_message_repository
     ),
@@ -69,9 +69,6 @@ async def create_message(
 
     ai_service = AIService()
 
-    # --------------------------------
-    # LOAD CHAT HISTORY
-    # --------------------------------
     history = await messages.list_for_chat(
         db,
         chat.id
@@ -106,9 +103,7 @@ async def create_message(
     )
 
     await messages.create(db, assistant_msg)
-
     await db.commit()
-
     await db.refresh(assistant_msg)
 
     return [user_msg, assistant_msg]

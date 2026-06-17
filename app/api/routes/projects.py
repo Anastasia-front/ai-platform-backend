@@ -1,10 +1,11 @@
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import get_db
 from app.dependencies import get_current_user, get_owned_project, get_project_repository
+from app.models import Project, User
 from app.repositories import ProjectRepository
 from app.schemas import ProjectCreate, ProjectResponse
 
@@ -13,19 +14,28 @@ router = APIRouter()
 # -------------------------------------------------
 # CREATE PROJECT
 # -------------------------------------------------
-@router.post("/", response_model=ProjectResponse)
+@router.post(
+    "/", 
+    response_model=ProjectResponse,
+    status_code=status.HTTP_201_CREATED
+)
 async def create_project(
     payload: ProjectCreate,
     db: AsyncSession = Depends(get_db),
-    user = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     projects: ProjectRepository = Depends(
         get_project_repository
     ),
 ):
-    project = await projects.create(
+    project = Project(
+        name=payload.name,
+        description=payload.description,
+    )
+
+    await projects.create(
         db=db,
-        **payload.model_dump(),
-        user_id=user.id,
+        project=project,
+        user_id=user.id
     )
     await db.commit()
     await db.refresh(project)
@@ -37,7 +47,7 @@ async def create_project(
 # -------------------------------------------------
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(
-    project = Depends(get_owned_project),
+    project: Project = Depends(get_owned_project),
 ):
     return project
 
@@ -47,7 +57,7 @@ async def get_project(
 @router.get("/", response_model=List[ProjectResponse])
 async def get_projects(
     db: AsyncSession = Depends(get_db),
-    user = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     projects: ProjectRepository = Depends(
         get_project_repository
     )
@@ -60,10 +70,13 @@ async def get_projects(
 # -------------------------------------------------
 # DELETE PROJECT
 # -------------------------------------------------
-@router.delete("/{project_id}")
+@router.delete(
+    "/{project_id}", 
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def delete_project(
     db: AsyncSession = Depends(get_db),
-    project = Depends(get_owned_project),
+    project: Project = Depends(get_owned_project),
     projects: ProjectRepository = Depends(
         get_project_repository
     ),
@@ -73,7 +86,3 @@ async def delete_project(
     project,
 )
     await db.commit()
-
-    return {
-        "message": "Project deleted",
-    }
