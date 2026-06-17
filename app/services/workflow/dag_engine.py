@@ -160,7 +160,7 @@ class DAGEngine:
 
         # persistent DAG state
         completed_runs = (
-            await self.step_runs.get_completed_steps(
+            await self.step_runs.list_completed_for_run(
                 db,
                 workflow_run.id,
             )
