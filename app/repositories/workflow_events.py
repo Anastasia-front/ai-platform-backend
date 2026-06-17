@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import WorkflowRun, WorkflowRunEvent
+from app.models import Project, Workflow, WorkflowRun, WorkflowRunEvent
 
 
 class WorkflowEventRepository:
@@ -26,6 +26,19 @@ class WorkflowEventRepository:
 
         return event
     
+    async def get_run(
+        self,
+        db: AsyncSession,
+        run_id: int,
+    ):
+        result = await db.execute(
+            select(WorkflowRun).where(
+                WorkflowRun.id == run_id,
+            )
+        )
+
+        return result.scalar_one_or_none()
+
     async def get_for_user_run(
         self,
         db: AsyncSession,
@@ -36,15 +49,38 @@ class WorkflowEventRepository:
             select(WorkflowRunEvent)
             .join(
                 WorkflowRun,
-                WorkflowRun.id
-                == WorkflowRunEvent.workflow_run_id,
+                WorkflowRun.id == WorkflowRunEvent.workflow_run_id,
+            )
+            .join(
+                Workflow,
+                Workflow.id == WorkflowRun.workflow_id,
+            )
+            .join(
+                Project,
+                Project.id == Workflow.project_id,
             )
             .where(
-                WorkflowRunEvent.workflow_run_id
-                == run_id,
-                WorkflowRun.user_id == user_id,
+                WorkflowRunEvent.workflow_run_id == run_id,
+                Project.user_id == user_id,
             )
             .order_by(WorkflowRunEvent.created_at)
+        )
+
+        return result.scalars().all()
+
+    async def get_for_run(
+        self,
+        db: AsyncSession,
+        run_id: int,
+    ):
+        result = await db.execute(
+            select(WorkflowRunEvent)
+            .where(
+                WorkflowRunEvent.workflow_run_id == run_id
+            )
+            .order_by(
+                WorkflowRunEvent.created_at
+            )
         )
 
         return result.scalars().all()
