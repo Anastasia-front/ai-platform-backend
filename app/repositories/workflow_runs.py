@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enums import WorkflowRunStatus
-from app.models import WorkflowRun
+from app.models import Project, Workflow, WorkflowRun
 
 
 class WorkflowRunRepository:
@@ -81,9 +81,18 @@ class WorkflowRunRepository:
         user_id: int,
     ):
         result = await db.execute(
-            select(WorkflowRun).where(
+            select(WorkflowRun)
+            .join(
+                Workflow,
+                Workflow.id == WorkflowRun.workflow_id,
+            )
+            .join(
+                Project,
+                Project.id == Workflow.project_id,
+            )
+            .where(
                 WorkflowRun.id == run_id,
-                WorkflowRun.user_id == user_id,
+                Project.user_id == user_id,
             )
         )
 
@@ -95,24 +104,44 @@ class WorkflowRunRepository:
         user_id: int,
     ):
         result = await db.execute(
-            select(WorkflowRun).where(
-                WorkflowRun.user_id == user_id
+            select(WorkflowRun)
+            .join(
+                Workflow,
+                Workflow.id == WorkflowRun.workflow_id,
             )
+            .join(
+                Project,
+                Project.id == Workflow.project_id,
+            )
+            .where(
+                Project.user_id == user_id,
+            )
+            .order_by(WorkflowRun.created_at.desc())
         )
 
         return result.scalars().all()
     
     async def get_for_workflow(
         self,
-        db,
+        db: AsyncSession,
         workflow_id: int,
         user_id: int,
     ):
         result = await db.execute(
-            select(WorkflowRun).where(
-                WorkflowRun.workflow_id == workflow_id,
-                WorkflowRun.user_id == user_id,
+            select(WorkflowRun)
+            .join(
+                Workflow,
+                Workflow.id == WorkflowRun.workflow_id,
             )
+            .join(
+                Project,
+                Project.id == Workflow.project_id,
+            )
+            .where(
+                WorkflowRun.workflow_id == workflow_id,
+                Project.user_id == user_id,
+            )
+            .order_by(WorkflowRun.created_at.desc())
         )
 
         return result.scalars().all()
