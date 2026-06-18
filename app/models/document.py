@@ -1,13 +1,12 @@
-from datetime import datetime, timezone
-
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.database import Base
+from app.core import Base
 from app.enums import DocumentStatus
+from app.models.mixins import TimestampMixin
 
 
-class Document(Base):
+class Document(TimestampMixin, Base):
     __tablename__ = "documents"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -20,19 +19,32 @@ class Document(Base):
 
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    filepath: Mapped[str] = mapped_column(Text, nullable=False)
+    filepath: Mapped[str] = mapped_column(String(1024), nullable=False)
 
-    status: Mapped[str] = mapped_column(
-        String(50),
-        default=DocumentStatus.UPLOADED,  # uploaded | processing | indexed | failed
+    mime_type: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    file_size: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    status: Mapped[DocumentStatus] = mapped_column(
+        Enum(DocumentStatus),
+        default=DocumentStatus.UPLOADED,
         nullable=False,
     )
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        nullable=False,
+    text: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
     )
 
-    # relation
-    project = relationship("Project", back_populates="documents")
+    project = relationship(
+        "Project",
+        back_populates="documents",
+    )
+
+    chunks = relationship(
+        "DocumentChunk",
+        back_populates="document",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="DocumentChunk.chunk_index",
+    )
