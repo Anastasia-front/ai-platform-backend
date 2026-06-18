@@ -1,12 +1,11 @@
-from datetime import datetime, timezone
-
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.models.mixins import TimestampMixin
 
 
-class Chat(Base):
+class Chat(TimestampMixin, Base):
     __tablename__ = "chats"
 
     id: Mapped[int] = mapped_column(
@@ -29,12 +28,6 @@ class Chat(Base):
     agent_name: Mapped[str] = mapped_column(
         String(50),
         default="assistant",
-        nullable=False,
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
 

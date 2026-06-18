@@ -1,12 +1,11 @@
-from datetime import datetime, timezone
-
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String
+from sqlalchemy import JSON, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
+from app.models.mixins import TimestampMixin
 
 
-class WorkflowRunEvent(Base):
+class WorkflowRunEvent(TimestampMixin, Base):
     __tablename__ = "workflow_run_events"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -20,8 +19,3 @@ class WorkflowRunEvent(Base):
     event_type: Mapped[str] = mapped_column(String, nullable=False)
 
     payload: Mapped[dict] = mapped_column(JSON, nullable=False)
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-    )

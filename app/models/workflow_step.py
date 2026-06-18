@@ -1,8 +1,5 @@
-from datetime import datetime, timezone
-
 from sqlalchemy import (
     JSON,
-    DateTime,
     ForeignKey,
     Index,
     Integer,
@@ -12,9 +9,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.models.mixins import TimestampMixin
 
 
-class WorkflowStep(Base):
+class WorkflowStep(TimestampMixin, Base):
     __tablename__ = "workflow_steps"
 
     __table_args__ = (
@@ -58,12 +56,6 @@ class WorkflowStep(Base):
     condition: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        nullable=False,
     )
 
     workflow = relationship(

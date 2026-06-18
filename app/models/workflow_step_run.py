@@ -1,13 +1,12 @@
-from datetime import datetime, timezone
-
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.enums import WorkflowRunStatus
+from app.models.mixins import TimestampMixin
 
 
-class WorkflowStepRun(Base):
+class WorkflowStepRun(TimestampMixin, Base):
     __tablename__ = "workflow_step_runs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -40,10 +39,5 @@ class WorkflowStepRun(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-    )
 
     workflow_run = relationship("WorkflowRun", back_populates="step_runs")

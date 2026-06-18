@@ -1,13 +1,12 @@
-from datetime import datetime, timezone
-
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.enums import WorkflowRunStatus
+from app.models.mixins import TimestampMixin
 
 
-class Workflow(Base):
+class Workflow(TimestampMixin, Base):
     __tablename__ = "workflows"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -23,12 +22,6 @@ class Workflow(Base):
     status: Mapped[str] = mapped_column(
         String,
         default=WorkflowRunStatus.PENDING,
-        nullable=False,
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
 

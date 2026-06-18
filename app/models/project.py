@@ -1,12 +1,11 @@
-from datetime import datetime, timezone
-
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.models.mixins import TimestampMixin
 
 
-class Project(Base):
+class Project(TimestampMixin, Base):
     __tablename__ = "projects"
 
     id: Mapped[int] = mapped_column(
@@ -29,12 +28,6 @@ class Project(Base):
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-    )
-
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
     )
 
     user = relationship("User", back_populates="projects")
