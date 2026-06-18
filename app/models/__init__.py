@@ -1,6 +1,7 @@
 from .agent_run import AgentRun
 from .chat import Chat
 from .document import Document
+from .document_chunk import DocumentChunk
 from .message import Message
 from .project import Project
 from .user import User
@@ -14,6 +15,7 @@ __all__ = [
     "AgentRun",
     "Chat",
     "Document",
+    "DocumentChunk",
     "Message",
     "Project",
     "User",
