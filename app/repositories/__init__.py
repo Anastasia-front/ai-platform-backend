@@ -1,5 +1,6 @@
 from .agent_runs import AgentRunRepository
 from .chats import ChatRepository
+from .document_chunks import DocumentChunkRepository
 from .documents import DocumentRepository
 from .messages import MessageRepository
 from .projects import ProjectRepository
@@ -12,6 +13,8 @@ from .workflows import WorkflowRepository
 __all__ = [
     "AgentRunRepository",
     "ChatRepository",
+    "DocumentChunkRepository",
+    "DocumentRepository",
     "MessageRepository",
     "ProjectRepository",
     "WorkflowEventRepository",
@@ -19,5 +22,4 @@ __all__ = [
     "WorkflowRunRepository",
     "WorkflowStepRepository",
     "WorkflowStepRunRepository",
-    "DocumentRepository",
 ]

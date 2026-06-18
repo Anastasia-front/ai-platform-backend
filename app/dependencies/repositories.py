@@ -1,6 +1,7 @@
 from app.repositories import (
     AgentRunRepository,
     ChatRepository,
+    DocumentChunkRepository,
     DocumentRepository,
     MessageRepository,
     ProjectRepository,
@@ -41,3 +42,6 @@ def get_workflow_event_repository():
 
 def get_document_repository():
     return DocumentRepository()
+
+def get_document_chunk_repository():
+    return DocumentChunkRepository()
