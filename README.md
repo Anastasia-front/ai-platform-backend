@@ -807,3 +807,29 @@ WorkflowRunRepository.create(user_id)
             ↓
 WorkflowRun.user_id saved
 ```
+
+### RAG
+
+The pipeline naturally becomes
+
+```
+            Upload
+                ↓
+            Document
+                ↓
+            Extract text
+                ↓
+            Chunks
+                ↓
+            Embeddings
+                ↓
+            Vector search
+                ↓
+            Relevant chunks
+                ↓
+            Prompt
+                ↓
+            LLM
+                ↓
+            Answer
+```
