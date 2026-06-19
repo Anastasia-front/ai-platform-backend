@@ -5,6 +5,7 @@ from .project import get_owned_project
 from .repositories import (
     get_agent_run_repository,
     get_chat_repository,
+    get_document_chunk_repository,
     get_document_repository,
     get_message_repository,
     get_project_repository,
@@ -23,6 +24,7 @@ __all__ = [
     "get_chat_repository",
     "get_current_user",
     "get_document_repository",
+    "get_document_chunk_repository",
     "get_message_repository",
     "get_owned_agent_run",
     "get_owned_chat",
