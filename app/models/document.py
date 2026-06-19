@@ -26,7 +26,9 @@ class Document(TimestampMixin, Base):
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
 
     status: Mapped[DocumentStatus] = mapped_column(
-        Enum(DocumentStatus),
+        Enum(DocumentStatus, 
+        values_callable=lambda enum: [e.value for e in enum],
+        native_enum=False),
         default=DocumentStatus.UPLOADED,
         nullable=False,
     )
