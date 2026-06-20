@@ -90,14 +90,14 @@ curl -X POST http://127.0.0.1:8000/auth/login \
 
 ## File Upload
 
-- [ ] Create or choose a project owned by the test user.
-- [ ] Upload a small `.txt` file with `POST /projects/{project_id}/documents`.
-- [ ] Confirm the response includes document ID, filename, filepath, status, and
-      created timestamp.
-- [ ] Confirm the file exists under `uploads/`.
-- [ ] List documents with `GET /projects/{project_id}/documents`.
-- [ ] Confirm another user cannot list or upload documents for the project.
-- [ ] Try uploading an unsupported or oversized file once validation exists.
+- ✔️ Create or choose a project owned by the test user.
+- ✔️ Upload a small `.txt` file with `POST /projects/{project_id}/documents`.
+- ✔️ Confirm the response includes document ID, filename, filepath, status, and
+  created timestamp.
+- ✔️ Confirm the file exists under `uploads/`.
+- ✔️ List documents with `GET /projects/{project_id}/documents`.
+- ✔️ Confirm another user cannot list or upload documents for the project.
+- ✔️ Try uploading an unsupported or oversized file once validation exists.
 - [ ] Try uploading a duplicate filename once collision handling exists.
 
 Example:
