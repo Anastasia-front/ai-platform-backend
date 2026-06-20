@@ -59,6 +59,5 @@ router.include_router(
 
 router.include_router(
     documents.router,
-    prefix="/projects",
     tags=["Documents"],
 )

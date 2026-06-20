@@ -5,14 +5,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import get_db
 from app.dependencies import (
-    get_current_user,
     get_document_chunk_repository,
     get_document_repository,
+    get_owned_document,
     get_owned_project,
 )
-from app.models import Project, User
+from app.models import Document, Project
 from app.repositories import DocumentChunkRepository, DocumentRepository
-from app.schemas import DocumentChunkResponse, DocumentResponse
+from app.schemas import (
+    DocumentChunkResponse,
+    DocumentProcessingResponse,
+    DocumentResponse,
+)
 from app.services import DocumentService
 
 router = APIRouter()
@@ -22,7 +26,7 @@ router = APIRouter()
 # GET DOCUMENTS
 # -------------------------------------------------
 @router.get(
-    "/{project_id}/documents",
+    "/projects/{project_id}/documents",
     response_model=List[DocumentResponse],
 )
 async def get_documents(
@@ -37,7 +41,7 @@ async def get_documents(
 # UPLOAD DOCUMENT
 # -------------------------------------------------
 @router.post(
-    "/{project_id}/documents",
+    "/projects/{project_id}/documents",
     response_model=DocumentResponse,
     status_code=status.HTTP_201_CREATED,
 )
@@ -49,9 +53,9 @@ async def upload_document(
     service = DocumentService()
 
     return await service.upload(
-        db=db,
-        project=project,
-        file=file,
+        db,
+        project,
+        file,
     )
 
 
@@ -59,35 +63,35 @@ async def upload_document(
 # PROCESS DOCUMENT
 # -------------------------------------------------
 @router.post(
-    "/{project_id}/documents/{document_id}/process",
-    response_model=DocumentResponse,
+    "/documents/{document_id}/process",
+    response_model=DocumentProcessingResponse,
 )
 async def process_document(
-    document_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-    project: Project = Depends(get_owned_project),
+    document: Document = Depends(get_owned_document),
     documents: DocumentRepository = Depends(get_document_repository),
+    chunks: DocumentChunkRepository = Depends(get_document_chunk_repository),
 ):
-    document = await documents.get_for_user(
-        db=db,
-        document_id=document_id,
-        user_id=user.id,
-    )
-
-    if not document or document.project_id != project.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Document not found",
-        )
-
     service = DocumentService(documents=documents)
 
     try:
-        return await service.process(
-            db=db,
-            document=document,
+        document = await service.process(
+            db,
+            document,
         )
+
+        chunk_count = await chunks.count_for_document(db, document.id)
+
+        return DocumentProcessingResponse(
+            id=document.id,
+            status=document.status,
+            processing_started_at=document.processing_started_at,
+            processing_finished_at=document.processing_finished_at,
+            processing_duration_ms=document.processing_duration_ms,
+            embedding_status=document.embedding_status,
+            chunk_count=chunk_count,
+        )
+
     except FileNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -104,30 +108,34 @@ async def process_document(
 # GET DOCUMENT CHUNKS
 # -------------------------------------------------
 @router.get(
-    "/{project_id}/documents/{document_id}/chunks",
+    "/documents/{document_id}/chunks",
     response_model=List[DocumentChunkResponse],
 )
 async def get_document_chunks(
-    document_id: int,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-    project: Project = Depends(get_owned_project),
-    documents: DocumentRepository = Depends(get_document_repository),
+    document: Document = Depends(get_owned_document),
     chunks: DocumentChunkRepository = Depends(get_document_chunk_repository),
 ):
-    document = await documents.get_for_user(
-        db=db,
-        document_id=document_id,
-        user_id=user.id,
-    )
-
-    if not document or document.project_id != project.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Document not found",
-        )
-
     return await chunks.list_for_document(
-        db=db,
-        document_id=document.id,
+        db,
+        document.id,
     )
+
+
+# -------------------------------------------------
+# DELETE DOCUMENT
+# -------------------------------------------------
+@router.delete(
+    "/documents/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_document(
+    db: AsyncSession = Depends(get_db),
+    document: Document = Depends(get_owned_document),
+    documents: DocumentRepository = Depends(get_document_repository),
+):
+    await documents.delete(
+        db,
+        document,
+    )
+    await db.commit()
