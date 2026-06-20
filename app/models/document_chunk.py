@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Integer, Text
+from sqlalchemy import ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core import Base
@@ -33,6 +33,12 @@ class DocumentChunk(
         Integer,
         nullable=False,
     )
+
+    start_offset = mapped_column(Integer, nullable=True)
+    end_offset = mapped_column(Integer, nullable=True)
+
+    # Later when using a vector database:
+    embedding_id = mapped_column(String(255), nullable=True)
 
     document = relationship(
         "Document",
