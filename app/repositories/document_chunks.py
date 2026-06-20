@@ -1,4 +1,4 @@
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import DocumentChunk
@@ -14,6 +14,19 @@ class DocumentChunkRepository:
         await db.flush()
 
         return chunks
+
+    async def count_for_document(
+        self,
+        db: AsyncSession,
+        document_id: int,
+    ) -> int:
+        result = await db.execute(
+            select(func.count(DocumentChunk.id)).where(
+                DocumentChunk.document_id == document_id
+            )
+        )
+
+        return result.scalar_one()
 
     async def delete_for_document(
         self,
