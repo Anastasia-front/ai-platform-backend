@@ -1,14 +1,23 @@
 import mimetypes
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.enums import DocumentStatus
+from app.core import (
+    ALLOWED_CONTENT_TYPES,
+    ALLOWED_EXTENSIONS,
+    MAX_UPLOAD_SIZE,
+)
+from app.enums import DocumentStatus, EmbeddingStatus
 from app.models import Document, DocumentChunk, Project
-from app.repositories import DocumentChunkRepository, DocumentRepository
+from app.repositories import (
+    DocumentChunkRepository,
+    DocumentRepository,
+)
 from app.services.chunk import ChunkService
 from app.services.embedding import EmbeddingService
 
@@ -26,10 +35,12 @@ class DocumentService:
         extractors: tuple[TextExtractor, ...] = DEFAULT_EXTRACTORS,
     ):
         self.upload_dir = Path(upload_dir)
+
         self.documents = documents or DocumentRepository()
         self.chunks = chunks or DocumentChunkRepository()
         self.chunker = chunker or ChunkService()
         self.embeddings = embeddings or EmbeddingService()
+
         self.extractors = extractors
 
     async def upload(
@@ -39,20 +50,46 @@ class DocumentService:
         file: UploadFile,
     ) -> Document:
         content = await file.read()
+
+        if len(content) > MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail="File is too large.",
+            )
+
         original_filename = self._safe_filename(file.filename)
-        stored_filename = self._stored_filename(original_filename)
-        file_path = self.upload_dir / stored_filename
+        print(file.content_type)
+        extension = Path(original_filename).suffix.lower()
 
-        self.upload_dir.mkdir(parents=True, exist_ok=True)
-
-        with open(file_path, "wb") as uploaded_file:
-            uploaded_file.write(content)
+        if extension not in ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=400,
+                detail="Unsupported file extension.",
+            )
 
         mime_type = (
             file.content_type
             or mimetypes.guess_type(original_filename)[0]
             or "application/octet-stream"
         )
+
+        if mime_type not in ALLOWED_CONTENT_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail="Unsupported file type.",
+            )
+
+        stored_filename = self._stored_filename(original_filename)
+
+        self.upload_dir.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        file_path = self.upload_dir / stored_filename
+
+        with open(file_path, "wb") as uploaded_file:
+            uploaded_file.write(content)
 
         document = Document(
             project_id=project.id,
@@ -63,7 +100,11 @@ class DocumentService:
             status=DocumentStatus.UPLOADED,
         )
 
-        document = await self.documents.create(db, document)
+        document = await self.documents.create(
+            db,
+            document,
+        )
+
         await db.commit()
         await db.refresh(document)
 
@@ -76,11 +117,21 @@ class DocumentService:
         chunk_size: int = 1000,
         overlap: int = 200,
     ) -> Document:
-        document.status = DocumentStatus.PROCESSING
+        await self.documents.update_status(
+            db,
+            document,
+            DocumentStatus.PROCESSING,
+        )
+
+        started = datetime.now(timezone.utc)
+
+        document.processing_started_at = started
+        document.embedding_status = EmbeddingStatus.PROCESSING
         await db.flush()
 
         try:
             text = await self.extract_text(document)
+
             chunks = self.chunk_document(
                 document=document,
                 text=text,
@@ -88,18 +139,30 @@ class DocumentService:
                 overlap=overlap,
             )
 
-            await self.embeddings.embed_texts(
-                [
-                    chunk.text
-                    for chunk in chunks
-                ]
+            # TODO:
+            # Persist embeddings once vector storage is implemented.
+            await self.embeddings.embed_texts([chunk.text for chunk in chunks])
+
+            await self.chunks.delete_for_document(
+                db,
+                document.id,
             )
 
-            await self.chunks.delete_for_document(db, document.id)
-            await self.chunks.create_many(db, chunks)
+            await self.chunks.create_many(
+                db,
+                chunks,
+            )
 
             document.text = text
-            document.status = DocumentStatus.INDEXED
+            document.status = (DocumentStatus.INDEXED)
+
+            finished = datetime.now(timezone.utc)
+
+            document.processing_finished_at = finished
+            document.processing_duration_ms = int(
+                (finished - started).total_seconds() * 1000
+            )
+            document.embedding_status = EmbeddingStatus.COMPLETED
 
             await db.commit()
             await db.refresh(document)
@@ -108,10 +171,13 @@ class DocumentService:
 
         except Exception:
             await db.rollback()
-            document.status = DocumentStatus.FAILED
-            db.add(document)
+
+            document.status = (DocumentStatus.FAILED)
+            document.embedding_status = EmbeddingStatus.FAILED
+
             await db.commit()
             await db.refresh(document)
+
             raise
 
     async def extract_text(
@@ -131,7 +197,7 @@ class DocumentService:
                 return extractor.extract(file_path)
 
         raise ValueError(
-            f"Unsupported document type: {file_path.suffix or document.mime_type}"
+            f"Unsupported document type: " f"{file_path.suffix or document.mime_type}"
         )
 
     def chunk_document(
@@ -149,9 +215,9 @@ class DocumentService:
                 token_count=chunk.token_count,
             )
             for chunk in self.chunker.chunk(
-                text=text,
-                chunk_size=chunk_size,
-                overlap=overlap,
+                text,
+                chunk_size,
+                overlap,
             )
         ]
 
@@ -160,7 +226,13 @@ class DocumentService:
         filename: str | None,
     ) -> str:
         name = Path(filename or "document").name
-        safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("._")
+
+        safe_name = re.sub(
+            r"[^\w.\-]+",
+            "_",
+            name,
+            flags=re.UNICODE,
+        ).strip("._")
 
         return safe_name or "document"
 
@@ -170,4 +242,4 @@ class DocumentService:
     ) -> str:
         suffix = Path(filename).suffix.lower()
 
-        return f"{uuid4().hex}{suffix}"
+        return f"{uuid4()}{suffix}"
