@@ -1,7 +1,7 @@
 from .agent_run import AgentRunCreate, AgentRunResponse
 from .auth import LoginRequest, RegisterRequest, TokenResponse, UserResponse
 from .chat import ChatCreate, ChatResponse
-from .document import DocumentResponse
+from .document import DocumentProcessingResponse, DocumentResponse
 from .document_chunk import DocumentChunkResponse
 from .message import MessageCreate, MessageResponse
 from .project import ProjectCreate, ProjectResponse
@@ -21,6 +21,7 @@ __all__ = [
     "ChatCreate",
     "ChatResponse",
     "DocumentResponse",
+    "DocumentProcessingResponse",
     "DocumentChunkResponse",
     "MessageCreate",
     "MessageResponse",
