@@ -1,6 +1,7 @@
 from .agent_run import get_owned_agent_run
 from .auth import get_current_user
 from .chat import get_owned_chat
+from .document import get_owned_document
 from .project import get_owned_project
 from .repositories import (
     get_agent_run_repository,
@@ -23,11 +24,12 @@ __all__ = [
     "get_agent_run_repository",
     "get_chat_repository",
     "get_current_user",
-    "get_document_repository",
     "get_document_chunk_repository",
+    "get_document_repository",
     "get_message_repository",
     "get_owned_agent_run",
     "get_owned_chat",
+    "get_owned_document",
     "get_owned_project",
     "get_owned_workflow",
     "get_owned_workflow_run",
