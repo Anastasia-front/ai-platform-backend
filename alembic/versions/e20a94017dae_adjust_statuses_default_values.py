@@ -27,19 +27,9 @@ document_status = postgresql.ENUM(
     name="documentstatus",
 )
 
-embedding_status = postgresql.ENUM(
-    "PENDING",
-    "PROCESSING",
-    "COMPLETED",
-    "FAILED",
-    name="embeddingstatus",
-)
-
-
 def upgrade() -> None:
     # Create enum types
     document_status.create(op.get_bind(), checkfirst=True)
-    embedding_status.create(op.get_bind(), checkfirst=True)
 
     # Convert documents.status
     op.alter_column(
@@ -97,5 +87,4 @@ def downgrade() -> None:
         postgresql_using="status::text",
     )
 
-    embedding_status.drop(op.get_bind(), checkfirst=True)
     document_status.drop(op.get_bind(), checkfirst=True)

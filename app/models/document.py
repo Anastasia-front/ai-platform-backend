@@ -28,10 +28,10 @@ class Document(TimestampMixin, Base):
     status: Mapped[DocumentStatus] = mapped_column(
         Enum(
             DocumentStatus,
+            name="documentstatus",
             values_callable=lambda enum: [e.value for e in enum],
-            native_enum=False,
         ),
-        default=DocumentStatus.UPLOADED.value,
+        default=DocumentStatus.UPLOADED,
         nullable=False,
     )
 
@@ -44,9 +44,15 @@ class Document(TimestampMixin, Base):
     processing_finished_at = mapped_column(DateTime(timezone=True), nullable=True)
     processing_duration_ms = mapped_column(Integer, nullable=True)
 
-    embedding_status = mapped_column(
-        Enum(EmbeddingStatus),
-        default=EmbeddingStatus.PENDING.value,
+    embedding_status: Mapped[EmbeddingStatus] = mapped_column(
+        Enum(
+            EmbeddingStatus,
+            name="embeddingstatus",
+            values_callable=lambda x: [e.value for e in x],
+            native_enum=True,
+            create_type=False,
+        ),
+        default=EmbeddingStatus.PENDING,
         nullable=False,
     )
 
