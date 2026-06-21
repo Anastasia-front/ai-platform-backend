@@ -1,5 +1,6 @@
 from .agent_run import AgentRun
 from .chat import Chat
+from .chunk_embedding import ChunkEmbedding
 from .document import Document
 from .document_chunk import DocumentChunk
 from .message import Message
@@ -14,6 +15,7 @@ from .workflow_step_run import WorkflowStepRun
 __all__ = [
     "AgentRun",
     "Chat",
+    "ChunkEmbedding",
     "Document",
     "DocumentChunk",
     "Message",
