@@ -98,7 +98,7 @@ curl -X POST http://127.0.0.1:8000/auth/login \
 - ✔️ List documents with `GET /projects/{project_id}/documents`.
 - ✔️ Confirm another user cannot list or upload documents for the project.
 - ✔️ Try uploading an unsupported or oversized file once validation exists.
-- [ ] Try uploading a duplicate filename once collision handling exists.
+- ✔️ Try uploading a duplicate filename once collision handling exists.
 
 Example:
 
@@ -112,19 +112,19 @@ curl -X POST http://127.0.0.1:8000/projects/1/documents \
 
 These checks apply once the processing endpoint and pipeline are implemented.
 
-- [ ] Process an uploaded TXT document.
-- [ ] Process an uploaded PDF document.
-- [ ] Process an uploaded DOCX document.
-- [ ] Confirm document status changes to `processing` while work is active.
-- [ ] Confirm document status changes to `indexed` after success.
-- [ ] Confirm document status changes to `failed` after extraction or embedding
-      failure.
-- [ ] Confirm chunks are persisted in document order.
-- [ ] Confirm chunk overlap is applied as expected.
-- [ ] Confirm chunk metadata includes document ID, project ID, and source
-      offsets or page metadata when available.
-- [ ] Confirm reprocessing does not create duplicate stale chunks.
-- [ ] Confirm another user cannot process or inspect chunks for the document.
+- ✔️ Process an uploaded TXT document.
+- ✔️ Process an uploaded PDF document.
+- ✔️ Process an uploaded DOCX document.
+- ✔️ Confirm document status changes to `processing` while work is active.
+- ✔️ Confirm document status changes to `indexed` after success.
+- ✔️ Confirm document status changes to `failed` after extraction or embedding
+  failure.
+- ✔️ Confirm chunks are persisted in document order.
+- ✔️ Confirm chunk overlap is applied as expected.
+- ✔️ Confirm chunk metadata includes document ID, project ID, and source
+  offsets or page metadata when available.
+- ✔️ Confirm reprocessing does not create duplicate stale chunks.
+- ✔️ Confirm another user cannot process or inspect chunks for the document.
 
 ## Embeddings and Retrieval
 
