@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ProjectCreate(BaseModel):
@@ -16,8 +16,7 @@ class ProjectResponse(BaseModel):
     user_id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
         # You return from route/service:
                 # return project
