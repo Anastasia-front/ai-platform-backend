@@ -19,9 +19,6 @@ class DocumentResponse(DocumentBase):
     text: str | None = None
     created_at: datetime
     updated_at: datetime
-    chunk_count: int | None = None
-    first_chunk_index: int | None = None
-    last_chunk_index: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
