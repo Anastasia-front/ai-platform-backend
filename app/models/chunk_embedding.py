@@ -2,7 +2,7 @@ from pgvector.sqlalchemy import Vector
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core import Base
+from app.core import Base, settings
 from app.models.mixins import TimestampMixin
 
 
@@ -20,7 +20,7 @@ class ChunkEmbedding(TimestampMixin, Base):
     model_name: Mapped[str] = mapped_column(String(100), nullable=False)
 
     embedding: Mapped[list[float]] = mapped_column(
-        Vector(1536),
+        Vector(settings.EMBEDDING_DIM),
         nullable=False,
     )
 
