@@ -10,18 +10,20 @@ from .extractors import (
     TextExtractor,
     TxtExtractor,
 )
+from .retrieval import RetrievalService
 from .workflow.workflow import WorkflowService
 
 __all__ = [
     "AIService",
     "AuthService",
-    "WorkflowService",
     "ChunkService",
-    "DocumentService",
-    "EmbeddingService",
     "DEFAULT_EXTRACTORS",
+    "DocumentService",
     "DocxExtractor",
+    "EmbeddingService",
     "PdfExtractor",
+    "RetrievalService",
     "TextExtractor",
     "TxtExtractor",
+    "WorkflowService",
 ]
