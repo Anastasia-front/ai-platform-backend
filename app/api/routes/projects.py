@@ -4,10 +4,21 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import get_db
-from app.dependencies import get_current_user, get_owned_project, get_project_repository
+from app.dependencies import (
+    get_current_user,
+    get_owned_project,
+    get_project_repository,
+    get_retrieval_service,
+)
 from app.models import Project, User
 from app.repositories import ProjectRepository
-from app.schemas import ProjectCreate, ProjectResponse
+from app.schemas import (
+    ProjectCreate,
+    ProjectResponse,
+    RetrievalRequest,
+    RetrievalResponse,
+)
+from app.services import RetrievalService
 
 router = APIRouter()
 
@@ -66,6 +77,28 @@ async def get_projects(
         db,
         user.id,
     )   
+
+# -------------------------------------------------
+#  RETRIEVE PROJECTS
+# -------------------------------------------------
+@router.post(
+    "/{project_id}/retrieve",
+    response_model=RetrievalResponse,
+)
+async def retrieve(
+    request: RetrievalRequest,
+    db: AsyncSession = Depends(get_db),
+    project: Project = Depends(get_owned_project),
+    current_user: User = Depends(get_current_user),
+    retrieval_service: RetrievalService = Depends(get_retrieval_service),
+):
+    return await retrieval_service.retrieve(
+        db=db,
+        project_id=project.id,
+        user_id=current_user.id,
+        query=request.query,
+        top_k=request.top_k,
+    )
 
 # -------------------------------------------------
 # DELETE PROJECT
