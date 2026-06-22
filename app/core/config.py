@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     OLLAMA_BASE_URL: str
     OLLAMA_MODEL: str
     OLLAMA_FALLBACK_MODEL: str
+    OLLAMA_EMBEDDING_MODEL: str
+    EMBEDDING_DIM: int
 
     model_config = SettingsConfigDict(
         env_file=".env",
