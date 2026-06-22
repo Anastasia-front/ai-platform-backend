@@ -10,13 +10,15 @@ from .repositories import (
     get_document_repository,
     get_message_repository,
     get_project_repository,
+    get_retrieval_repository,
     get_workflow_event_repository,
     get_workflow_repository,
     get_workflow_run_repository,
     get_workflow_step_repository,
     get_workflow_step_run_repository,
 )
-from .workflow import get_owned_workflow, get_workflow_service
+from .services import get_embedding_service, get_retrieval_service, get_workflow_service
+from .workflow import get_owned_workflow
 from .workflow_run import get_owned_workflow_run
 from .workflow_steps import get_owned_workflow_step
 
@@ -26,6 +28,7 @@ __all__ = [
     "get_current_user",
     "get_document_chunk_repository",
     "get_document_repository",
+    "get_embedding_service",
     "get_message_repository",
     "get_owned_agent_run",
     "get_owned_chat",
@@ -35,6 +38,8 @@ __all__ = [
     "get_owned_workflow_run",
     "get_owned_workflow_step",
     "get_project_repository",
+    "get_retrieval_repository",
+    "get_retrieval_service",
     "get_workflow_event_repository",
     "get_workflow_repository",
     "get_workflow_run_repository",
