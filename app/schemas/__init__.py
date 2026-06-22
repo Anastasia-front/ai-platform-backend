@@ -5,6 +5,7 @@ from .document import DocumentProcessingResponse, DocumentResponse
 from .document_chunk import DocumentChunkResponse
 from .message import MessageCreate, MessageResponse
 from .project import ProjectCreate, ProjectResponse
+from .retrieval import RetrievalRequest, RetrievalResponse, RetrievalResult
 from .workflow import WorkflowCreate, WorkflowResponse
 from .workflow_event import WorkflowEventResponse
 from .workflow_run import WorkflowRunRequest, WorkflowRunResponse
@@ -14,25 +15,28 @@ from .workflow_step_run import WorkflowStepRunResponse
 __all__ = [
     "AgentRunCreate",
     "AgentRunResponse",
-    "LoginRequest",
-    "RegisterRequest",
-    "TokenResponse",
-    "UserResponse",
     "ChatCreate",
     "ChatResponse",
-    "DocumentResponse",
-    "DocumentProcessingResponse",
     "DocumentChunkResponse",
+    "DocumentProcessingResponse",
+    "DocumentResponse",
+    "LoginRequest",
     "MessageCreate",
     "MessageResponse",
     "ProjectCreate",
     "ProjectResponse",
+    "RegisterRequest",
+    "RetrievalRequest",
+    "RetrievalResponse",
+    "RetrievalResult",
+    "TokenResponse",
+    "UserResponse",
     "WorkflowCreate",
+    "WorkflowEventResponse",
     "WorkflowResponse",
     "WorkflowRunRequest",
     "WorkflowRunResponse",
     "WorkflowStepCreate",
     "WorkflowStepResponse",
     "WorkflowStepRunResponse",
-    "WorkflowEventResponse",
 ]
