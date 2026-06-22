@@ -4,6 +4,7 @@ from .document_chunks import DocumentChunkRepository
 from .documents import DocumentRepository
 from .messages import MessageRepository
 from .projects import ProjectRepository
+from .retrieval import RetrievalRepository
 from .workflow_events import WorkflowEventRepository
 from .workflow_runs import WorkflowRunRepository
 from .workflow_step_runs import WorkflowStepRunRepository
@@ -17,6 +18,7 @@ __all__ = [
     "DocumentRepository",
     "MessageRepository",
     "ProjectRepository",
+    "RetrievalRepository",
     "WorkflowEventRepository",
     "WorkflowRepository",
     "WorkflowRunRepository",
