@@ -13,7 +13,7 @@ from app.core import (
     MAX_UPLOAD_SIZE,
 )
 from app.enums import DocumentStatus, EmbeddingStatus
-from app.models import Document, DocumentChunk, Project
+from app.models import ChunkEmbedding, Document, DocumentChunk, Project
 from app.repositories import (
     DocumentChunkRepository,
     DocumentRepository,
@@ -117,12 +117,8 @@ class DocumentService:
         chunk_size: int = 1000,
         overlap: int = 200,
     ) -> Document:
-        await self.documents.update_status(
-            db,
-            document,
-            DocumentStatus.PROCESSING,
-        )
 
+        document.status = DocumentStatus.PROCESSING
         started = datetime.now(timezone.utc)
 
         document.processing_started_at = started
@@ -130,31 +126,42 @@ class DocumentService:
         await db.flush()
 
         try:
+            # 1. extract full text
             text = await self.extract_text(document)
 
-            chunks = self.chunk_document(
+            # 2. create chunks (in memory)
+            chunk_objs = self.chunk_document(
                 document=document,
                 text=text,
                 chunk_size=chunk_size,
                 overlap=overlap,
             )
 
-            # TODO:
-            # Persist embeddings once vector storage is implemented.
-            await self.embeddings.embed_texts([chunk.text for chunk in chunks])
+            # 3. persist chunks FIRST (so they get IDs)
+            await self.chunks.create_many(db, chunk_objs)
+            await db.flush()  # IMPORTANT: ensures IDs exist
 
-            await self.chunks.delete_for_document(
-                db,
-                document.id,
+            # 4. generate embeddings
+            embeddings_vectors = await self.embeddings.embed_texts(
+                [chunk.text for chunk in chunk_objs]
             )
 
-            await self.chunks.create_many(
-                db,
-                chunks,
-            )
+            # 5. create embedding rows using REAL chunk IDs
+            embedding_rows = [
+                ChunkEmbedding(
+                    chunk_id=chunk.id,
+                    model_name=self.embeddings.model_name,
+                    embedding=vector,
+                )
+                for chunk, vector in zip(chunk_objs, embeddings_vectors)
+            ]
 
+            db.add_all(embedding_rows)
+            await db.flush()
+
+            # 6. finalize document
             document.text = text
-            document.status = (DocumentStatus.INDEXED)
+            document.status = DocumentStatus.INDEXED
 
             finished = datetime.now(timezone.utc)
 
@@ -162,6 +169,7 @@ class DocumentService:
             document.processing_duration_ms = int(
                 (finished - started).total_seconds() * 1000
             )
+
             document.embedding_status = EmbeddingStatus.COMPLETED
 
             await db.commit()
@@ -172,7 +180,7 @@ class DocumentService:
         except Exception:
             await db.rollback()
 
-            document.status = (DocumentStatus.FAILED)
+            document.status = DocumentStatus.FAILED
             document.embedding_status = EmbeddingStatus.FAILED
 
             await db.commit()
