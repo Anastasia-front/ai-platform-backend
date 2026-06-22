@@ -1,49 +1,37 @@
-import hashlib
-import math
+import httpx
+
+from app.core import settings
 
 
 class EmbeddingService:
     def __init__(
         self,
         dimensions: int = 384,
-        model_name: str = "local-hash-placeholder",
+        model_name: str = settings.OLLAMA_EMBEDDING_MODEL,
     ):
         if dimensions <= 0:
             raise ValueError("dimensions must be greater than 0")
 
-        self.dimensions = dimensions
+        self._dimensions = dimensions
         self.model_name = model_name
 
-    async def embed_text(
-        self,
-        text: str,
-    ) -> list[float]:
-        if not text.strip():
-            return [0.0] * self.dimensions
+    # expose read-only API
+    # but keep internal mutability control
+    # avoids accidental runtime reconfiguration bugs
+    @property
+    def dimensions(self) -> int:
+        return self._dimensions
 
-        vector = [0.0] * self.dimensions
+    async def embed_text(self, text: str) -> list[float]:
+        async with httpx.AsyncClient() as client:
+            res = await client.post(
+                "http://localhost:11434/api/embeddings",
+                json={
+                    "model": self.model_name,
+                    "prompt": text,
+                },
+            )
+            return res.json()["embedding"]
 
-        for token in text.lower().split():
-            digest = hashlib.blake2b(
-                token.encode("utf-8"),
-                digest_size=16,
-            ).digest()
-            index = int.from_bytes(digest[:8], "big") % self.dimensions
-            sign = 1.0 if digest[8] % 2 == 0 else -1.0
-            vector[index] += sign
-
-        magnitude = math.sqrt(sum(value * value for value in vector))
-
-        if magnitude == 0:
-            return vector
-
-        return [value / magnitude for value in vector]
-
-    async def embed_texts(
-        self,
-        texts: list[str],
-    ) -> list[list[float]]:
-        return [
-            await self.embed_text(text)
-            for text in texts
-        ]
+    async def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        return [await self.embed_text(t) for t in texts]
