@@ -20,11 +20,21 @@ class RetrievalRepository:
         result = await db.execute(
             select(
                 DocumentChunk,
+                Document.filename.label("document_name"),
                 distance.label("score"),
             )
-            .join(Document, Document.id == DocumentChunk.document_id)
-            .join(Project, Project.id == Document.project_id)
-            .join(ChunkEmbedding, ChunkEmbedding.chunk_id == DocumentChunk.id)
+            .join(
+                ChunkEmbedding,
+                ChunkEmbedding.chunk_id == DocumentChunk.id,
+            )
+            .join(
+                Document,
+                Document.id == DocumentChunk.document_id,
+            )
+            .join(
+                Project,
+                Project.id == Document.project_id,
+            )
             .where(
                 Document.project_id == project_id,
                 Project.user_id == user_id,
