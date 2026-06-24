@@ -38,11 +38,12 @@ class RetrievalService:
             results=[
                 RetrievalResult(
                     document_id=chunk.document_id,
+                    document_name=document_name,
                     chunk_id=chunk.id,
                     chunk_index=chunk.chunk_index,
                     score=float(score),
                     text=chunk.text,
                 )
-                for chunk, score in rows
+                for chunk, document_name, score in rows
             ]
         )

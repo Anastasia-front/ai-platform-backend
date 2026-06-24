@@ -79,7 +79,7 @@ class ChatService:
         answer, sources = await self.rag.answer(
             db=db,
             project_id=chat.project_id,
-            user=user,
+            user_id=user.id,
             question=content,
             history=ollama_messages,
             system_prompt=agent.system_prompt,

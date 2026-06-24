@@ -1,7 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.user import User
-from app.prompts.rag import RAGPromptBuilder
+from app.prompts import RAGPromptBuilder
 from app.services.ai import AIService
 from app.services.retrieval import RetrievalService
 
@@ -22,7 +21,7 @@ class RAGService:
         db: AsyncSession,
         *,
         project_id: int,
-        user: User,
+        user_id: int,
         question: str,
         history: list[dict],
         system_prompt: str,
@@ -32,12 +31,12 @@ class RAGService:
         retrieved = await self.retrieval.retrieve(
             db=db,
             project_id=project_id,
-            user=user,
+            user_id=user_id,
             query=question,
             top_k=top_k,
         )
 
-        context = self.prompts.build_context(retrieved)
+        context = self.prompts.build_context(retrieved.results)
 
         rag_system_prompt = self.prompts.build_system_prompt(
             base_prompt=system_prompt,
@@ -51,13 +50,13 @@ class RAGService:
 
         sources = [
             {
-                "document_id": r.document_id,
                 "document_name": r.document_name,
+                "document_id": r.document_id,
                 "chunk_id": r.chunk_id,
                 "chunk_index": r.chunk_index,
                 "score": r.score,
             }
-            for r in retrieved
+            for r in retrieved.results
         ]
 
         return answer, sources
