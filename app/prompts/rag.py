@@ -39,7 +39,10 @@ Context:
         for i, c in enumerate(chunks, start=1):
             blocks.append(
                 f"[Source {i}]\n"
-                f"Document: {c.document_name}\n\n"
+                f"Document: {c.document_id}\n\n"
+                f"ChunkId: {c.chunk_id}\n\n"
+                f"ChunkIndex: {c.chunk_index}\n\n"
+                f"Score: {c.score}\n\n"
                 f"{c.text}"
             )
 
