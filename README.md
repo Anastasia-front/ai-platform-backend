@@ -833,3 +833,70 @@ The pipeline naturally becomes
                 ↓
             Answer
 ```
+
+And the architecture should become:
+
+```
+            Chat Endpoint
+                  │
+                  ▼
+            RAGService
+                  │
+                  ├────────► RetrievalService
+                  │
+                  └────────► AIService
+                              │
+                              ▼
+                              Ollama
+```
+
+Rag service responsibility is only:
+
+```
+                  question
+                  ↓
+                  retrieve chunks
+                  ↓
+                  build context
+                  ↓
+                  call AIService
+                  ↓
+                  return answer + sources
+```
+
+- It should not know anything about FastAPI.
+- It should not know anything about HTTP.
+- It should simply expose answer.
+
+The flow becomes:
+
+```
+                  POST /messages
+                        │
+                        ▼
+                  ChatService.create_message()
+                        │
+                        ├── save user message
+                        ├── load history
+                        ├── RAGService.retrieve()
+                        ├── AIService.generate_chat_response()
+                        ├── save assistant + sources
+                        └── return messages
+```
+
+Clean separation:
+
+```
+                  Router
+                              HTTP only
+                  ChatService
+                              orchestration
+                  RAGService
+                              retrieval + AI coordination
+                  PromptBuilder
+                              pure string logic
+                  AIService
+                              external LLM I/O
+                  RetrievalService
+                              vector DB search
+```
