@@ -6,6 +6,7 @@ class RetrievalRequest(BaseModel):
     top_k: int = 5
 
 class RetrievalResult(BaseModel):
+    document_name: str
     document_id: int
     chunk_id: int
     chunk_index: int
