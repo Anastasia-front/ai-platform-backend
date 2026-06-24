@@ -130,14 +130,14 @@ These checks apply once the processing endpoint and pipeline are implemented.
 
 These checks apply once embeddings and retrieval are implemented.
 
-- [ ] Confirm embeddings are generated for every persisted chunk.
-- [ ] Confirm embedding model name and dimensions are recorded.
-- [ ] Run a retrieval query against a project with indexed documents.
-- [ ] Confirm retrieval returns chunks only from the authenticated user's
-      project.
-- [ ] Confirm retrieval ranking is plausible for a known query.
-- [ ] Confirm chat responses can include retrieved context.
-- [ ] Confirm source metadata or citations are returned when enabled.
+- ✔️ Confirm embeddings are generated for every persisted chunk.
+- ✔️ Confirm embedding model name and dimensions are recorded.
+- ✔️ Run a retrieval query against a project with indexed documents.
+- ✔️ Confirm retrieval returns chunks only from the authenticated user's
+  project.
+- ✔️ Confirm retrieval ranking is plausible for a known query.
+- ✔️ Confirm chat responses can include retrieved context.
+- ✔️ Confirm source metadata or citations are returned when enabled.
 
 ## Regression Checks
 
