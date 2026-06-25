@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import SIMILARITY_THRESHOLD
 from app.prompts import RAGPromptBuilder
 from app.services.ai import AIService
 from app.services.retrieval import RetrievalService
@@ -36,7 +37,11 @@ class RAGService:
             top_k=top_k,
         )
 
-        context = self.prompts.build_context(retrieved.results)
+        filtered_results = [
+            r for r in retrieved.results if r.score <= SIMILARITY_THRESHOLD
+        ]
+
+        context = self.prompts.build_context(filtered_results)
 
         rag_system_prompt = self.prompts.build_system_prompt(
             base_prompt=system_prompt,

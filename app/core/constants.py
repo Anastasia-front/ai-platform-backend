@@ -28,3 +28,5 @@ ALLOWED_CONTENT_TYPES = {
     "text/x-yaml",
     "text/x-log",
 }
+
+SIMILARITY_THRESHOLD = 0.55
