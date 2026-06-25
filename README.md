@@ -900,3 +900,9 @@ Clean separation:
                   RetrievalService
                               vector DB search
 ```
+
+Maybe add later RAG features like in production SaaS:
+
+- Score aggregation
+- Better source structure
+- RAG tracing persistence
