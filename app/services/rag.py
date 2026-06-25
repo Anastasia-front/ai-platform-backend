@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import SIMILARITY_THRESHOLD
@@ -38,7 +40,9 @@ class RAGService:
         )
 
         filtered_results = [
-            r for r in retrieved.results if r.score <= SIMILARITY_THRESHOLD
+            r
+            for r in retrieved.results
+            if r.score <= SIMILARITY_THRESHOLD
         ]
 
         context = self.prompts.build_context(filtered_results)
@@ -53,15 +57,63 @@ class RAGService:
             system_prompt=rag_system_prompt,
         )
 
-        sources = [
-            {
-                "document_name": r.document_name,
-                "document_id": r.document_id,
-                "chunk_id": r.chunk_id,
-                "chunk_index": r.chunk_index,
-                "score": r.score,
-            }
-            for r in retrieved.results
-        ]
+        sources = self._build_sources(filtered_results)
 
         return answer, sources
+
+    def _build_sources(
+        self,
+        chunks,
+    ) -> list[dict]:
+
+        grouped = defaultdict(list)
+
+        for chunk in chunks:
+            grouped[
+                (
+                    chunk.document_id,
+                    chunk.document_name,
+                )
+            ].append(chunk)
+
+        sources = []
+
+        for (
+            document_id,
+            document_name,
+        ), matches in grouped.items():
+
+            sources.append(
+                {
+                    "document_id": document_id,
+                    "document_name": document_name,
+                    "matches": len(matches),
+                    "best_score": min(m.score for m in matches),
+                }
+            )
+
+        return sorted(
+            sources,
+            key=lambda s: s["best_score"],
+        )
+
+
+# The flow is now:
+
+# Retrieved chunks
+#         ↓
+# Threshold filter
+#         ↓
+# filtered_results
+#         ↓
+# Context builder
+#         ↓
+# LLM answer
+
+# filtered_results
+#         ↓
+# _build_sources()
+#         ↓
+# deduplicated documents
+#         ↓
+# frontend citations

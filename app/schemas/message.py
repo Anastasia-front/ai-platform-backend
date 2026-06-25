@@ -11,9 +11,8 @@ class MessageCreate(BaseModel):
 class SourceMetadata(BaseModel):
     document_id: int
     document_name: str
-    chunk_id: int
-    chunk_index: int
-    score: float
+    matches: int
+    best_score: float
 
 class MessageResponse(BaseModel):
     id: int
