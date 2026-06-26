@@ -31,6 +31,9 @@ Generate a secure secret for authentication:
 
 ```bash
 python3 -c "import secrets; print(secrets.token_hex(64))"
+
+or
+openssl rand -hex 64 # and paste manually
 ```
 
 Copy the output into your `.env` file:
@@ -46,6 +49,12 @@ generate secret once
 store in:
 AWS Secrets Manager / GCP Secret Manager / Vault
 never in .env in production
+```
+
+For DB_PASSWORD:
+
+```
+openssl rand -base64 32
 ```
 
 ### 2. Create environment file
@@ -906,3 +915,228 @@ Maybe add later RAG features like in production SaaS:
 - Score aggregation
 - Better source structure
 - RAG tracing persistence
+
+## Infrastructure
+
+```
+                        GitHub
+                              |
+                        GitHub Actions
+                              |
+                  -------------------------
+                  |                       |
+            Terraform            Docker build
+                  |                       |
+            AWS Infra              Amazon ECR
+                  |
+            -------------------------------
+            |             |              |
+            EC2           RDS            S3
+```
+
+### Infrastructure (Terraform)
+
+Infrastructure is managed with **Terraform** and follows a modular structure.
+
+## Structure
+
+```text
+infra/
+├── backend.tf          # Terraform backend configuration
+├── provider.tf         # AWS provider configuration
+├── variables.tf        # Root input variables
+├── outputs.tf          # Root outputs
+├── main.tf             # Module composition
+├── userdata.sh         # EC2 bootstrap script
+└── modules/
+    ├── network/        # VPC, subnets, security groups
+    ├── iam/            # IAM roles and instance profiles
+    ├── ec2/            # API server
+    ├── rds/            # PostgreSQL database
+    ├── s3/             # File storage
+    ├── ecr/            # Docker image registry
+    └── ssm/            # Parameter Store (application secrets)
+```
+
+## Module responsibilities
+
+| Module      | Purpose                                                                                      |
+| ----------- | -------------------------------------------------------------------------------------------- |
+| **network** | Creates or manages networking resources (VPC, subnets, security groups).                     |
+| **iam**     | Creates IAM roles and instance profiles required by EC2.                                     |
+| **ec2**     | Runs the backend application.                                                                |
+| **rds**     | Hosts the PostgreSQL database.                                                               |
+| **s3**      | Stores uploaded documents and application files.                                             |
+| **ecr**     | Stores Docker images for deployment.                                                         |
+| **ssm**     | Stores application secrets and environment variables in AWS Systems Manager Parameter Store. |
+
+## Deployment
+
+Initialize Terraform:
+
+```bash
+terraform init
+```
+
+Preview infrastructure changes:
+
+```bash
+terraform plan
+```
+
+Create or update infrastructure:
+
+```bash
+terraform apply
+```
+
+Destroy infrastructure:
+
+```bash
+terraform destroy
+```
+
+## Current backend
+
+Terraform state is currently stored **locally**.
+
+## Future improvement
+
+Migrate the Terraform state to an S3 backend:
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket = "your-terraform-state"
+    key    = "ai-platform/terraform.tfstate"
+    region = "eu-central-1"
+  }
+}
+```
+
+This enables shared state, state locking, and safer team collaboration.
+
+## Terraform Commands
+
+Format Terraform files:
+
+```bash
+terraform fmt
+```
+
+Initialize Terraform:
+
+```bash
+terraform init
+```
+
+Validate configuration:
+
+```bash
+terraform validate
+```
+
+Preview infrastructure changes:
+
+```bash
+terraform plan
+```
+
+Apply infrastructure:
+
+```bash
+terraform apply
+```
+
+Destroy infrastructure:
+
+```bash
+terraform destroy
+```
+
+---
+
+## Pre-Apply Checklist
+
+Before running `terraform apply`, verify:
+
+- [ ] `terraform validate` succeeds
+- [ ] `terraform plan` shows only expected resources
+- [ ] No NAT Gateway is being created
+- [ ] No Load Balancer is being created
+- [ ] EC2 instance type is `t2.micro`
+- [ ] RDS instance class is `db.t3.micro`
+- [ ] RDS is **not** publicly accessible
+- [ ] S3 bucket name is globally unique
+- [ ] SSH access is restricted to your IP (recommended)
+- [ ] `terraform.tfvars` is **not** committed to Git
+
+---
+
+## Current Security Notes
+
+Current EC2 Security Group allows:
+
+| Port       | Source      | Purpose |
+| ---------- | ----------- | ------- |
+| `22/tcp`   | `0.0.0.0/0` | SSH     |
+| `80/tcp`   | `0.0.0.0/0` | HTTP    |
+| `8000/tcp` | `0.0.0.0/0` | FastAPI |
+
+This configuration is acceptable for local development and initial testing, but should be tightened before production deployment.
+
+### Recommended Improvements
+
+- Restrict SSH (`22`) to your public IP
+- Place the backend behind Nginx
+- Expose only ports `80` and `443`
+- Close public access to port `8000`
+- Enable HTTPS (TLS)
+
+---
+
+## Terraform Backend
+
+Terraform state is currently stored locally.
+
+Later, migrate the state to an S3 backend:
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket = "your-terraform-state"
+    key    = "ai-platform/terraform.tfstate"
+    region = "eu-central-1"
+  }
+}
+```
+
+Using a remote backend is recommended once the infrastructure becomes stable or Terraform is managed through CI/CD.
+
+---
+
+## SSM Parameters
+
+Terraform stores application secrets in AWS Systems Manager Parameter Store under:
+
+```text
+/ai-platform/*
+```
+
+Example parameters:
+
+```text
+/ai-platform/JWT_SECRET
+/ai-platform/OLLAMA_MODEL
+/ai-platform/OLLAMA_FALLBACK_MODEL
+/ai-platform/OLLAMA_EMBEDDING_MODEL
+/ai-platform/STORAGE_PROVIDER
+```
+
+`DATABASE_URL` should be added after the RDS instance has been created, since it depends on the generated database endpoint.
+
+Example:
+
+```text
+postgresql+asyncpg://postgres:<password>@<rds-endpoint>:5432/app
+```
