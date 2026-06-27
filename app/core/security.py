@@ -30,7 +30,7 @@ def create_access_token(data: dict, expires_minutes: int | None = None):
 
     return jwt.encode(
         to_encode,
-        settings.SECRET_KEY,
+        settings.JWT_SECRET,
         algorithm=settings.ALGORITHM,
     )
 
@@ -38,6 +38,6 @@ def create_access_token(data: dict, expires_minutes: int | None = None):
 def decode_access_token(token: str):
     return jwt.decode(
         token,
-        settings.SECRET_KEY,
+        settings.JWT_SECRET,
         algorithms=[settings.ALGORITHM],
     )
