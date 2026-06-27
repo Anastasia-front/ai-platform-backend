@@ -39,7 +39,7 @@ openssl rand -hex 64 # and paste manually
 Copy the output into your `.env` file:
 
 ```text
-SECRET_KEY=your_generated_secret_here
+JWT_SECRET=your_generated_secret_here
 ```
 
 **Best practice (production systems)**
@@ -67,7 +67,7 @@ Then ensure `.env` contains:
 
 ```text
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/ai_platform
-SECRET_KEY=your_generated_secret_here
+JWT_SECRET=your_generated_secret_here
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
 ```
@@ -1140,3 +1140,12 @@ Example:
 ```text
 postgresql+asyncpg://postgres:<password>@<rds-endpoint>:5432/app
 ```
+
+### Before terraform apply, fix/check these:
+
+- Security risk: EC2 SSH port 22 is open to 0.0.0.0/0. Better restrict it to your IP. Use CIDR format (your.ip.address/32)
+- Security risk: EC2 port 8000 is open publicly. Fine for testing, but not ideal long-term.
+- Cost risk: RDS db.t3.micro may be free-tier eligible only depending on your AWS account/- free-tier status. Monitor Billing.
+- IAM issue: AmazonS3FullAccess is too broad. It works, but later replace it with bucket-specific permissions.
+- Missing DATABASE_URL in SSM: Your SSM parameters include JWT/Ollama/storage settings, but not - DATABASE_URL. You will need to add it after RDS endpoint exists or generate it from Terraform.
+- S3 bucket name: ai-platform-uploads must be globally unique. If apply fails, change project_name.
