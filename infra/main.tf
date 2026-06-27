@@ -1,13 +1,22 @@
 module "network" {
   source = "./modules/network"
 
+  project_name     = var.project_name
+  ssh_allowed_cidr = var.ssh_allowed_cidr
+}
+
+
+module "s3" {
+  source = "./modules/s3"
+
   project_name = var.project_name
 }
 
 module "iam" {
   source = "./modules/iam"
 
-  project_name = var.project_name
+  project_name       = var.project_name
+  uploads_bucket_arn = module.s3.bucket_arn
 }
 
 module "ec2" {
@@ -30,12 +39,6 @@ module "rds" {
   security_group = module.network.rds_security_group
 }
 
-module "s3" {
-  source = "./modules/s3"
-
-  project_name = var.project_name
-}
-
 module "ecr" {
   source = "./modules/ecr"
 
@@ -46,5 +49,13 @@ module "ssm" {
   source = "./modules/ssm"
 
   project_name = var.project_name
-  env_values   = var.env_values
+
+  env_values = merge(
+    var.env_values,
+    {
+      DATABASE_URL  = "postgresql+asyncpg://${var.db_username}:${var.db_password}@${module.rds.endpoint}:5432/app"
+      AWS_S3_BUCKET = module.s3.bucket_name
+      AWS_REGION    = var.aws_region
+    }
+  )
 }
