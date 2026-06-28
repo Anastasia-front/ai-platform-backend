@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from .base import TextExtractor
 
 
@@ -15,11 +13,12 @@ class TxtExtractor(TextExtractor):
         ".yml",
     }
 
-    def extract(
+    def extract_bytes(
         self,
-        file_path: Path,
+        file_bytes: bytes,
     ) -> str:
-        return file_path.read_text(
-            encoding="utf-8",
+
+        return file_bytes.decode(
+            "utf-8",
             errors="replace",
         )

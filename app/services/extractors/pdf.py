@@ -1,4 +1,4 @@
-from pathlib import Path
+from io import BytesIO
 
 from .base import TextExtractor
 
@@ -6,24 +6,25 @@ from .base import TextExtractor
 class PdfExtractor(TextExtractor):
     supported_extensions = {".pdf"}
 
-    def extract(
+    def extract_bytes(
         self,
-        file_path: Path,
+        file_bytes: bytes,
+        filename: str,
     ) -> str:
+
         try:
             from pypdf import PdfReader
         except ImportError as exc:
-            raise RuntimeError(
-                "PDF extraction requires the optional 'pypdf' package"
-            ) from exc
+            raise RuntimeError("PDF extraction requires pypdf") from exc
 
-        reader = PdfReader(str(file_path))
-        pages: list[str] = []
+        reader = PdfReader(BytesIO(file_bytes))
+
+        pages = []
 
         for page in reader.pages:
-            page_text = page.extract_text() or ""
+            text = page.extract_text() or ""
 
-            if page_text.strip():
-                pages.append(page_text.strip())
+            if text.strip():
+                pages.append(text.strip())
 
         return "\n\n".join(pages)

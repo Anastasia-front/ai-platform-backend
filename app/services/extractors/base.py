@@ -8,13 +8,23 @@ class TextExtractor(ABC):
     def supports(
         self,
         file_path: Path,
-        mime_type: str | None = None,
     ) -> bool:
         return file_path.suffix.lower() in self.supported_extensions
 
     @abstractmethod
-    def extract(
+    def extract_bytes(
         self,
-        file_path: Path,
+        file_bytes: bytes,
+        filename: str,
     ) -> str:
+        """
+        Extract plain text from the raw file bytes.
+
+        Args:
+            file_bytes: Raw file contents.
+            filename: Original filename (used to determine format if needed).
+
+        Returns:
+            Extracted plain text.
+        """
         raise NotImplementedError
