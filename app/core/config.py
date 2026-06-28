@@ -1,19 +1,34 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.enums import LLMProvider
+
 
 class Settings(BaseSettings):
     DATABASE_URL: str
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
-    SECRET_KEY: str
+    JWT_SECRET: str
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-    OLLAMA_BASE_URL: str
-    OLLAMA_MODEL: str
-    OLLAMA_FALLBACK_MODEL: str
-    OLLAMA_EMBEDDING_MODEL: str
-    EMBEDDING_DIM: int
+    CHAT_PROVIDER: LLMProvider = LLMProvider.OLLAMA
+    EMBEDDING_PROVIDER: LLMProvider = LLMProvider.OLLAMA
+
+    CHAT_BASE_URL: str = "http://localhost:11434"
+    EMBEDDING_BASE_URL: str = "http://localhost:11434"
+
+    CHAT_API_KEY: str = ""
+    EMBEDDING_API_KEY: str = ""
+
+    CHAT_MODEL: str = "gemma2:2b"
+    CHAT_FALLBACK_MODEL: str = "llama3.2:3b"
+
+    EMBEDDING_MODEL: str = "nomic-embed-text"
+    EMBEDDING_DIM: int = 768
+
+    STORAGE_PROVIDER: str
+    AWS_S3_BUCKET: str = "ai-platform-uploads"
+    AWS_REGION: str = "eu-central-1"
 
     model_config = SettingsConfigDict(
         env_file=".env",
