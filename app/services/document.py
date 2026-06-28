@@ -20,6 +20,7 @@ from app.repositories import (
 )
 from app.services.chunk import ChunkService
 from app.services.embedding import EmbeddingService
+from app.services.storage import LocalStorageService, StorageService
 
 from .extractors import DEFAULT_EXTRACTORS, TextExtractor
 
@@ -27,14 +28,14 @@ from .extractors import DEFAULT_EXTRACTORS, TextExtractor
 class DocumentService:
     def __init__(
         self,
-        upload_dir: str = "uploads",
+        storage: StorageService | None = None,
         documents: DocumentRepository | None = None,
         chunks: DocumentChunkRepository | None = None,
         chunker: ChunkService | None = None,
         embeddings: EmbeddingService | None = None,
         extractors: tuple[TextExtractor, ...] = DEFAULT_EXTRACTORS,
     ):
-        self.upload_dir = Path(upload_dir)
+        self.storage = storage or LocalStorageService()
 
         self.documents = documents or DocumentRepository()
         self.chunks = chunks or DocumentChunkRepository()
@@ -49,6 +50,7 @@ class DocumentService:
         project: Project,
         file: UploadFile,
     ) -> Document:
+
         content = await file.read()
 
         if len(content) > MAX_UPLOAD_SIZE:
@@ -58,7 +60,6 @@ class DocumentService:
             )
 
         original_filename = self._safe_filename(file.filename)
-        print(file.content_type)
         extension = Path(original_filename).suffix.lower()
 
         if extension not in ALLOWED_EXTENSIONS:
@@ -81,20 +82,15 @@ class DocumentService:
 
         stored_filename = self._stored_filename(original_filename)
 
-        self.upload_dir.mkdir(
-            parents=True,
-            exist_ok=True,
+        stored_path = await self.storage.save(
+            filename=stored_filename,
+            content=content,
         )
-
-        file_path = self.upload_dir / stored_filename
-
-        with open(file_path, "wb") as uploaded_file:
-            uploaded_file.write(content)
 
         document = Document(
             project_id=project.id,
             filename=original_filename,
-            filepath=str(file_path),
+            filepath=stored_path,
             mime_type=mime_type,
             file_size=len(content),
             status=DocumentStatus.UPLOADED,
@@ -119,58 +115,56 @@ class DocumentService:
     ) -> Document:
 
         document.status = DocumentStatus.PROCESSING
-        started = datetime.now(timezone.utc)
-
-        document.processing_started_at = started
+        document.processing_started_at = datetime.now(timezone.utc)
         document.embedding_status = EmbeddingStatus.PROCESSING
+
         await db.flush()
 
+        started = document.processing_started_at
+
         try:
-            # 1. extract full text
             text = await self.extract_text(document)
 
-            # 2. create chunks (in memory)
-            chunk_objs = self.chunk_document(
+            chunk_objects = self.chunk_document(
                 document=document,
                 text=text,
                 chunk_size=chunk_size,
                 overlap=overlap,
             )
 
-            # 3. persist chunks FIRST (so they get IDs)
-            await self.chunks.create_many(db, chunk_objs)
-            await db.flush()  # IMPORTANT: ensures IDs exist
-
-            # 4. generate embeddings
-            embeddings_vectors = await self.embeddings.embed_texts(
-                [chunk.text for chunk in chunk_objs]
+            await self.chunks.create_many(
+                db,
+                chunk_objects,
             )
 
-            # 5. create embedding rows using REAL chunk IDs
-            embedding_rows = [
-                ChunkEmbedding(
-                    chunk_id=chunk.id,
-                    model_name=self.embeddings.model_name,
-                    embedding=vector,
-                )
-                for chunk, vector in zip(chunk_objs, embeddings_vectors)
-            ]
-
-            db.add_all(embedding_rows)
             await db.flush()
 
-            # 6. finalize document
-            document.text = text
-            document.status = DocumentStatus.INDEXED
+            vectors = await self.embeddings.embed_texts(
+                [chunk.text for chunk in chunk_objects]
+            )
+
+            db.add_all(
+                [
+                    ChunkEmbedding(
+                        chunk_id=chunk.id,
+                        model_name=self.embeddings.model_name,
+                        embedding=vector,
+                    )
+                    for chunk, vector in zip(chunk_objects, vectors)
+                ]
+            )
+
+            await db.flush()
 
             finished = datetime.now(timezone.utc)
 
+            document.text = text
+            document.status = DocumentStatus.INDEXED
+            document.embedding_status = EmbeddingStatus.COMPLETED
             document.processing_finished_at = finished
             document.processing_duration_ms = int(
                 (finished - started).total_seconds() * 1000
             )
-
-            document.embedding_status = EmbeddingStatus.COMPLETED
 
             await db.commit()
             await db.refresh(document)
@@ -192,20 +186,18 @@ class DocumentService:
         self,
         document: Document,
     ) -> str:
-        file_path = Path(document.filepath)
 
-        if not file_path.exists():
-            raise FileNotFoundError(f"Document file not found: {document.filepath}")
+        file_bytes = await self.storage.read(document.filepath)
 
         for extractor in self.extractors:
-            if extractor.supports(
-                file_path=file_path,
-                mime_type=document.mime_type,
-            ):
-                return extractor.extract(file_path)
+            if extractor.supports(Path(document.filename)):
+                return extractor.extract_bytes(
+                    file_bytes=file_bytes,
+                    filename=document.filename,
+                )
 
         raise ValueError(
-            f"Unsupported document type: " f"{file_path.suffix or document.mime_type}"
+            f"Unsupported document type: {document.filename}"
         )
 
     def chunk_document(
@@ -215,6 +207,7 @@ class DocumentService:
         chunk_size: int = 1000,
         overlap: int = 200,
     ) -> list[DocumentChunk]:
+
         return [
             DocumentChunk(
                 document_id=document.id,
@@ -223,9 +216,9 @@ class DocumentService:
                 token_count=chunk.token_count,
             )
             for chunk in self.chunker.chunk(
-                text,
-                chunk_size,
-                overlap,
+                text=text,
+                chunk_size=chunk_size,
+                overlap=overlap,
             )
         ]
 
@@ -233,21 +226,21 @@ class DocumentService:
         self,
         filename: str | None,
     ) -> str:
+
         name = Path(filename or "document").name
 
-        safe_name = re.sub(
+        safe = re.sub(
             r"[^\w.\-]+",
             "_",
             name,
             flags=re.UNICODE,
         ).strip("._")
 
-        return safe_name or "document"
+        return safe or "document"
 
     def _stored_filename(
         self,
         filename: str,
     ) -> str:
-        suffix = Path(filename).suffix.lower()
 
-        return f"{uuid4()}{suffix}"
+        return f"{uuid4()}{Path(filename).suffix.lower()}"

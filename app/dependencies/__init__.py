@@ -23,6 +23,7 @@ from .services import (
     get_embedding_service,
     get_rag_service,
     get_retrieval_service,
+    get_storage_service,
     get_workflow_service,
 )
 from .workflow import get_owned_workflow
@@ -50,6 +51,7 @@ __all__ = [
     "get_rag_service",
     "get_retrieval_repository",
     "get_retrieval_service",
+    "get_storage_service",
     "get_workflow_event_repository",
     "get_workflow_repository",
     "get_workflow_run_repository",

@@ -21,6 +21,11 @@ from app.services import (
     RetrievalService,
     WorkflowService,
 )
+from app.services.storage import (
+    LocalStorageService,
+    S3StorageService,
+    StorageService,
+)
 from app.services.workflow import DAGEngine, EventBus
 
 
@@ -92,3 +97,13 @@ def get_chat_service(
         messages=messages,
         rag=rag,
     )
+
+
+def get_storage_service() -> StorageService:
+    if settings.STORAGE_PROVIDER == "s3":
+        return S3StorageService(
+            bucket_name=settings.AWS_S3_BUCKET,
+            region=settings.AWS_REGION,
+        )
+
+    return LocalStorageService()
