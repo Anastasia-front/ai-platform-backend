@@ -31,6 +31,8 @@ class RetrievalService:
             project_id=project_id,
             user_id=user_id,
             embedding=query_embedding,
+            provider=self.embedding_service.provider,
+            model_name=self.embedding_service.model_name,
             top_k=top_k,
         )
 

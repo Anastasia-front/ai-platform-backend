@@ -44,10 +44,9 @@ class DocumentChunk(
         "Document",
         back_populates="chunks",
     )
-
-    embedding = relationship(
+    
+    embeddings = relationship(
         "ChunkEmbedding",
         back_populates="chunk",
-        uselist=False,
         cascade="all, delete-orphan",
     )
