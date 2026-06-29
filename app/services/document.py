@@ -146,9 +146,11 @@ class DocumentService:
             db.add_all(
                 [
                     ChunkEmbedding(
-                        chunk_id=chunk.id,
-                        model_name=self.embeddings.model_name,
-                        embedding=vector,
+                    chunk_id=chunk.id,
+                    provider=self.embeddings.provider,
+                    model_name=self.embeddings.model_name,
+                    dimensions=self.embeddings.dimensions,
+                    embedding=vector,
                     )
                     for chunk, vector in zip(chunk_objects, vectors)
                 ]
@@ -193,7 +195,6 @@ class DocumentService:
             if extractor.supports(Path(document.filename)):
                 return extractor.extract_bytes(
                     file_bytes=file_bytes,
-                    filename=document.filename,
                 )
 
         raise ValueError(
