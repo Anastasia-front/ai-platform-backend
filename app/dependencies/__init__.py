@@ -20,6 +20,7 @@ from .repositories import (
 from .services import (
     get_ai_service,
     get_chat_service,
+    get_embedding_management_service,
     get_embedding_service,
     get_rag_service,
     get_retrieval_service,
@@ -38,6 +39,7 @@ __all__ = [
     "get_current_user",
     "get_document_chunk_repository",
     "get_document_repository",
+    "get_embedding_management_service",
     "get_embedding_service",
     "get_message_repository",
     "get_owned_agent_run",

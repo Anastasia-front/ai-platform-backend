@@ -1,4 +1,3 @@
-import inspect
 
 from fastapi import Depends
 
@@ -16,6 +15,7 @@ from app.repositories import (
 from app.services import (
     AIService,
     ChatService,
+    EmbeddingManagementService,
     EmbeddingService,
     RAGService,
     RetrievalService,
@@ -81,7 +81,6 @@ def get_rag_service(
     ai: AIService = Depends(get_ai_service),
     prompts: RAGPromptBuilder = Depends(get_rag_prompt_builder),
 ) -> RAGService:
-    print(inspect.signature(RAGService.__init__))
     return RAGService(
         retrieval_service=retrieval,
         ai_service=ai,
@@ -107,3 +106,11 @@ def get_storage_service() -> StorageService:
         )
 
     return LocalStorageService()
+
+
+def get_embedding_management_service(
+    embedding_service: EmbeddingService = Depends(get_embedding_service),
+) -> EmbeddingManagementService:
+    return EmbeddingManagementService(
+        embedding_service=embedding_service,
+    )

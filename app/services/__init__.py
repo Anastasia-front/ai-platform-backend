@@ -4,6 +4,7 @@ from .chat import ChatService
 from .chunk import ChunkService
 from .document import DocumentService
 from .embedding import EmbeddingService
+from .embedding_management import EmbeddingManagementService
 from .extractors import (
     DEFAULT_EXTRACTORS,
     DocxExtractor,
@@ -23,6 +24,7 @@ __all__ = [
     "DEFAULT_EXTRACTORS",
     "DocumentService",
     "DocxExtractor",
+    "EmbeddingManagementService",
     "EmbeddingService",
     "PdfExtractor",
     "RAGService",
