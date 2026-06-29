@@ -5,6 +5,8 @@ from app.api.routes import (
     auth,
     chats,
     documents,
+    embeddings,
+    health,
     messages,
     projects,
     workflow_runs,
@@ -60,4 +62,14 @@ router.include_router(
 router.include_router(
     documents.router,
     tags=["Documents"],
+)
+
+router.include_router(
+    embeddings.router, 
+    tags=["Embeddings"]
+)
+
+router.include_router(
+    health.router, 
+    tags=["Health"]
 )
