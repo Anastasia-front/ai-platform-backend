@@ -9,7 +9,6 @@ class PdfExtractor(TextExtractor):
     def extract_bytes(
         self,
         file_bytes: bytes,
-        filename: str,
     ) -> str:
 
         try:
