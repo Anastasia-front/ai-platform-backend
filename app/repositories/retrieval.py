@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.enums import LLMProvider
+from app.enums import EmbeddingProvider
 from app.models import ChunkEmbedding, Document, DocumentChunk, Project
 
 
@@ -14,7 +14,7 @@ class RetrievalRepository:
         project_id: int,
         user_id: int,
         embedding: list[float],
-        provider: LLMProvider,
+        provider: EmbeddingProvider,
         model_name: str,
         top_k: int,
     ):
@@ -41,7 +41,7 @@ class RetrievalRepository:
             .where(
                 Document.project_id == project_id,
                 Project.user_id == user_id,
-                ChunkEmbedding.provider == provider.value,
+                ChunkEmbedding.provider == provider,
                 ChunkEmbedding.model_name == model_name,
             )
             .order_by(distance)

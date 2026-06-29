@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.enums import LLMProvider
+from app.enums import ChatProvider, EmbeddingProvider
 
 
 class Settings(BaseSettings):
@@ -11,8 +11,8 @@ class Settings(BaseSettings):
     JWT_SECRET: str
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-    CHAT_PROVIDER: LLMProvider = LLMProvider.OLLAMA
-    EMBEDDING_PROVIDER: LLMProvider = LLMProvider.OLLAMA
+    CHAT_PROVIDER: ChatProvider = ChatProvider.OLLAMA
+    EMBEDDING_PROVIDER: EmbeddingProvider = EmbeddingProvider.OLLAMA
 
     CHAT_BASE_URL: str = "http://localhost:11434"
     EMBEDDING_BASE_URL: str = "http://localhost:11434"

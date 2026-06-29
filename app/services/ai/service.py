@@ -1,7 +1,7 @@
 import httpx
 
 from app.core import settings
-from app.enums import LLMProvider
+from app.enums import ChatProvider
 from app.services.ai.providers import (
     AIProvider,
     GeminiProvider,
@@ -14,7 +14,7 @@ from app.services.ai.providers import (
 class AIService:
     def __init__(
         self,
-        provider: LLMProvider = settings.CHAT_PROVIDER,
+        provider: ChatProvider = settings.CHAT_PROVIDER,
         model: str = settings.CHAT_MODEL,
         fallback_model: str | None = settings.CHAT_FALLBACK_MODEL,
         base_url: str = settings.CHAT_BASE_URL,
@@ -31,24 +31,24 @@ class AIService:
     def _build_provider(
         self,
     ) -> AIProvider:
-        if self.provider_name == LLMProvider.OLLAMA:
+        if self.provider_name == ChatProvider.OLLAMA:
             return OllamaProvider(
                 base_url=self.base_url,
             )
 
-        if self.provider_name == LLMProvider.OPENROUTER:
+        if self.provider_name == ChatProvider.OPENROUTER:
             return OpenRouterProvider(
                 api_key=self.api_key,
                 base_url=self.base_url,
             )
 
-        if self.provider_name == LLMProvider.GROQ:
+        if self.provider_name == ChatProvider.GROQ:
             return GroqAIProvider(
                 api_key=self.api_key,
                 base_url=self.base_url,
             )
 
-        if self.provider_name == LLMProvider.GEMINI:
+        if self.provider_name == ChatProvider.GEMINI:
             return GeminiProvider(
                 api_key=self.api_key,
                 base_url=self.base_url,

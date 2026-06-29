@@ -1,13 +1,15 @@
+import asyncio
+
 import httpx
 
 from app.core import settings
-from app.enums import LLMProvider
+from app.enums import EmbeddingProvider
 
 
 class EmbeddingService:
     def __init__(
         self,
-        provider: LLMProvider = settings.EMBEDDING_PROVIDER,
+        provider: EmbeddingProvider = settings.EMBEDDING_PROVIDER,
         model_name: str = settings.EMBEDDING_MODEL,
         dimensions: int = settings.EMBEDDING_DIM,
         base_url: str = settings.EMBEDDING_BASE_URL,
@@ -21,7 +23,7 @@ class EmbeddingService:
         self._dimensions = dimensions
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
-        
+
     # expose read-only API
     # but keep internal mutability control
     # avoids accidental runtime reconfiguration bugs
@@ -36,32 +38,35 @@ class EmbeddingService:
         if not text.strip():
             return [0.0] * self.dimensions
 
-        if self.provider == LLMProvider.OLLAMA:
+        if self.provider == EmbeddingProvider.OLLAMA:
             return await self._embed_ollama(text)
 
-        if self.provider == LLMProvider.OPENROUTER:
+        if self.provider == EmbeddingProvider.OPENROUTER:
             return await self._embed_openrouter(text)
 
-        if self.provider == LLMProvider.GEMINI:
+        if self.provider == EmbeddingProvider.GEMINI:
             return await self._embed_gemini(text)
 
-        if self.provider == LLMProvider.GROQ:
+        if self.provider == EmbeddingProvider.GROQ:
             raise ValueError(
                 "GroqAIProvider is supported for chat, but embeddings are not implemented for Groq."
             )
 
-        raise ValueError(
-            f"Unsupported embedding provider: {self.provider}"
-        )
+        raise ValueError(f"Unsupported embedding provider: {self.provider}")
 
     async def embed_texts(
         self,
         texts: list[str],
     ) -> list[list[float]]:
-        return [
-            await self.embed_text(text)
-            for text in texts
-        ]
+        vectors = []
+
+        for text in texts:
+            vector = await self.embed_text(text)
+            vectors.append(vector)
+
+            await asyncio.sleep(0.2)
+
+        return vectors
 
     async def _embed_ollama(
         self,
@@ -107,25 +112,45 @@ class EmbeddingService:
         self,
         text: str,
     ) -> list[float]:
-        async with httpx.AsyncClient(timeout=120) as client:
-            response = await client.post(
-                f"{self.base_url}/models/{self.model_name}:embedContent",
-                params={
-                    "key": self.api_key,
-                },
-                json={
-                    "content": {
-                        "parts": [
-                            {
-                                "text": text,
-                            }
-                        ]
-                    },
-                    "outputDimensionality": self.dimensions,
-                },
-            )
+        last_error = None
 
-            response.raise_for_status()
-            data = response.json()
+        for attempt in range(3):
+            try:
+                async with httpx.AsyncClient(timeout=120) as client:
+                    response = await client.post(
+                        f"{self.base_url}/models/{self.model_name}:embedContent",
+                        params={
+                            "key": self.api_key,
+                        },
+                        json={
+                            "content": {
+                                "parts": [
+                                    {
+                                        "text": text,
+                                    }
+                                ]
+                            },
+                            "outputDimensionality": self.dimensions,
+                        },
+                    )
 
-            return data["embedding"]["values"]
+                    response.raise_for_status()
+                    data = response.json()
+
+                    return data["embedding"]["values"]
+
+            except httpx.HTTPStatusError as exc:
+                last_error = exc
+
+                if exc.response.status_code in {429, 500, 502, 503, 504}:
+                    await asyncio.sleep(2**attempt)
+                    continue
+
+                raise
+
+            except httpx.HTTPError as exc:
+                last_error = exc
+                await asyncio.sleep(2**attempt)
+                continue
+
+        raise last_error
