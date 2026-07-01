@@ -1,0 +1,15 @@
+.git
+.gitignore
+venv
+__pycache__
+.pytest_cache
+.mypy_cache
+.idea
+.vscode
+.env
+*.pyc
+*.pyo
+*.log
+terraform
+infra
+uploads
