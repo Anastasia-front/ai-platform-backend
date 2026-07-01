@@ -5,12 +5,15 @@ from app.enums import ChatProvider, EmbeddingProvider
 
 class Settings(BaseSettings):
     DATABASE_URL: str
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
+    
+    POSTGRES_USER: str = ""
+    POSTGRES_PASSWORD: str = ""
+    POSTGRES_DB: str = ""
+
     JWT_SECRET: str
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+
     CHAT_PROVIDER: ChatProvider = ChatProvider.OLLAMA
     EMBEDDING_PROVIDER: EmbeddingProvider = EmbeddingProvider.OLLAMA
 
