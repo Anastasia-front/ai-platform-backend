@@ -56,6 +56,6 @@ resource "aws_security_group" "rds" {
     to_port   = 0
     protocol  = "-1"
 
-    cidr_blocks = [var.ssh_allowed_cidr]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }

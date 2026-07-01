@@ -1,9 +1,15 @@
-variable "project_name" {}
+variable "project_name" {
+    type = string
+}
 
 variable "ami" {}
 
 variable "instance_type" {
   default = "t3.micro"
+}
+
+variable "key_name" {
+  type = string
 }
 
 variable "subnet_id" {}

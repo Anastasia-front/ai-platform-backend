@@ -10,6 +10,7 @@ module "s3" {
   source = "./modules/s3"
 
   project_name = var.project_name
+  aws_region   = var.aws_region
 }
 
 module "iam" {
@@ -23,6 +24,7 @@ module "ec2" {
   source = "./modules/ec2"
 
   project_name     = var.project_name
+  key_name         = var.key_name
   ami              = var.ec2_ami
   subnet_id        = module.network.subnet_id
   security_group   = module.network.ec2_security_group

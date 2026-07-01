@@ -6,6 +6,10 @@ variable "project_name" {
   type = string
 }
 
+variable "key_name" {
+  type = string
+}
+
 variable "ssh_allowed_cidr" {
   type = string
 }
