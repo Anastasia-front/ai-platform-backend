@@ -5,3 +5,7 @@ variable "project_name" {
 variable "uploads_bucket_arn" {
   type = string
 }
+
+variable "aws_region" {
+  type = string
+}

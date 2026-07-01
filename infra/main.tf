@@ -17,6 +17,7 @@ module "iam" {
   source = "./modules/iam"
 
   project_name       = var.project_name
+  aws_region         = var.aws_region
   uploads_bucket_arn = module.s3.bucket_arn
 }
 
@@ -55,7 +56,7 @@ module "ssm" {
   env_values = merge(
     var.env_values,
     {
-      DATABASE_URL  = "postgresql+asyncpg://${var.db_username}:${var.db_password}@${module.rds.endpoint}:5432/app"
+      DATABASE_URL = "postgresql+asyncpg://${var.db_username}:${var.db_password}@${module.rds.endpoint}/app"
       AWS_S3_BUCKET = module.s3.bucket_name
       AWS_REGION    = var.aws_region
     }

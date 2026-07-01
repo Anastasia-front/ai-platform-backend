@@ -65,3 +65,38 @@ resource "aws_iam_role_policy_attachment" "s3_uploads_access" {
   role       = aws_iam_role.ec2_role.name
   policy_arn = aws_iam_policy.s3_uploads_access.arn
 }
+
+resource "aws_iam_policy" "ecr_push_access" {
+  name = "${var.project_name}-ecr-push-access"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:PutImage",
+          "ecr:BatchGetImage",
+          "ecr:DescribeRepositories"
+        ]
+        Resource = "arn:aws:ecr:${var.aws_region}:*:repository/${var.project_name}-backend"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecr_push_access" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = aws_iam_policy.ecr_push_access.arn
+}
