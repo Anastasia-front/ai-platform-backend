@@ -1,0 +1,98 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: eu-central-1
+  ECR_REGISTRY: 377193654975.dkr.ecr.eu-central-1.amazonaws.com
+  ECR_REPOSITORY: ai-platform-backend
+  IMAGE_TAG: latest
+  CONTAINER_NAME: ai-platform-backend
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region $AWS_REGION \
+          | docker login --username AWS --password-stdin $ECR_REGISTRY
+
+      - name: Build Docker image
+        run: |
+          docker build \
+          --platform linux/amd64 \
+          -t $ECR_REPOSITORY:$IMAGE_TAG .
+
+      - name: Tag Docker image
+        run: |
+          docker tag $ECR_REPOSITORY:$IMAGE_TAG \
+          $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Push Docker image
+        run: |
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+
+            AWS_REGION="eu-central-1"
+            ECR_REGISTRY="377193654975.dkr.ecr.eu-central-1.amazonaws.com"
+            ECR_REPOSITORY="ai-platform-backend"
+            IMAGE_TAG="latest"
+            CONTAINER_NAME="ai-platform-backend"
+
+            cd ~/ai-automation-platform
+
+            aws ssm get-parameters-by-path \
+              --path /ai-platform \
+              --with-decryption \
+              --region $AWS_REGION \
+              --recursive \
+              --query "Parameters[*].[Name,Value]" \
+              --output text \
+            | awk -F'\t' '{split($1,a,"/"); print a[length(a)]"="$2}' > .env
+
+            aws ecr get-login-password --region $AWS_REGION \
+            | docker login --username AWS --password-stdin $ECR_REGISTRY
+
+            docker pull $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+            docker run --rm \
+              --env-file .env \
+              $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+              alembic upgrade head
+
+            docker stop $CONTAINER_NAME || true
+            docker rm $CONTAINER_NAME || true
+
+            docker run -d \
+              --name $CONTAINER_NAME \
+              --env-file .env \
+              -p 80:8000 \
+              --restart unless-stopped \
+              $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+            docker image prune -f
+
+            curl -f http://localhost/health
