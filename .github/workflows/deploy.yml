@@ -47,52 +47,43 @@ jobs:
         run: |
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -e
+      - name: Deploy to EC2 via SSM
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --region $AWS_REGION \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy ai-platform backend" \
+            --parameters 'commands=[
+              "set -e",
+              "AWS_REGION=eu-central-1",
+              "ECR_REGISTRY=377193654975.dkr.ecr.eu-central-1.amazonaws.com",
+              "ECR_REPOSITORY=ai-platform-backend",
+              "IMAGE_TAG=latest",
+              "CONTAINER_NAME=ai-platform-backend",
+              "cd /home/ubuntu/ai-automation-platform",
+              "aws ssm get-parameters-by-path --path /ai-platform --with-decryption --region eu-central-1 --recursive --query \"Parameters[*].[Name,Value]\" --output text | awk -F\"\t\" '\''{split($1,a,\"/\"); print a[length(a)]\"=\"$2}'\'' > .env",
+              "aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 377193654975.dkr.ecr.eu-central-1.amazonaws.com",
+              "docker pull 377193654975.dkr.ecr.eu-central-1.amazonaws.com/ai-platform-backend:latest",
+              "docker run --rm --env-file .env 377193654975.dkr.ecr.eu-central-1.amazonaws.com/ai-platform-backend:latest alembic upgrade head",
+              "docker stop ai-platform-backend || true",
+              "docker rm ai-platform-backend || true",
+              "docker run -d --name ai-platform-backend --env-file .env -p 80:8000 --restart unless-stopped 377193654975.dkr.ecr.eu-central-1.amazonaws.com/ai-platform-backend:latest",
+              "docker image prune -f",
+              "curl -f http://localhost/health"
+            ]' \
+            --query "Command.CommandId" \
+            --output text)
 
-            AWS_REGION="eu-central-1"
-            ECR_REGISTRY="377193654975.dkr.ecr.eu-central-1.amazonaws.com"
-            ECR_REPOSITORY="ai-platform-backend"
-            IMAGE_TAG="latest"
-            CONTAINER_NAME="ai-platform-backend"
+          echo "Command ID: $COMMAND_ID"
 
-            cd ~/ai-automation-platform
+          aws ssm wait command-executed \
+            --region $AWS_REGION \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ secrets.EC2_INSTANCE_ID }}"
 
-            aws ssm get-parameters-by-path \
-              --path /ai-platform \
-              --with-decryption \
-              --region $AWS_REGION \
-              --recursive \
-              --query "Parameters[*].[Name,Value]" \
-              --output text \
-            | awk -F'\t' '{split($1,a,"/"); print a[length(a)]"="$2}' > .env
-
-            aws ecr get-login-password --region $AWS_REGION \
-            | docker login --username AWS --password-stdin $ECR_REGISTRY
-
-            docker pull $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
-            docker run --rm \
-              --env-file .env \
-              $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-              alembic upgrade head
-
-            docker stop $CONTAINER_NAME || true
-            docker rm $CONTAINER_NAME || true
-
-            docker run -d \
-              --name $CONTAINER_NAME \
-              --env-file .env \
-              -p 80:8000 \
-              --restart unless-stopped \
-              $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
-            docker image prune -f
-
-            curl -f http://localhost/health
+          aws ssm get-command-invocation \
+            --region $AWS_REGION \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+            --query "{Status:Status,Stdout:StandardOutputContent,Stderr:StandardErrorContent}"
