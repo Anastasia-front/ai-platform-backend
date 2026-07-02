@@ -1149,3 +1149,23 @@ postgresql+asyncpg://postgres:<password>@<rds-endpoint>:5432/app
 - IAM issue: AmazonS3FullAccess is too broad. It works, but later replace it with bucket-specific permissions.
 - Missing DATABASE_URL in SSM: Your SSM parameters include JWT/Ollama/storage settings, but not - DATABASE_URL. You will need to add it after RDS endpoint exists or generate it from Terraform.
 - S3 bucket name: ai-platform-uploads must be globally unique. If apply fails, change project_name.
+
+## GitHub Actions flow:
+
+```
+git push → build Docker image → push to ECR → SSH into EC2 → pull image → restart container
+```
+
+A solid CI/CD pipeline:
+
+- Checkout code.
+- Configure AWS credentials.
+- Login to ECR.
+- Build image.
+- Push image.
+- SSH to EC2.
+- Download .env from SSM.
+- Pull latest image.
+- Run Alembic migrations.
+- Replace the running container.
+- Verify with /health.
