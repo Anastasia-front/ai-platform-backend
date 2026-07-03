@@ -76,6 +76,10 @@ jobs:
 
               "docker run --rm --env-file .env 377193654975.dkr.ecr.eu-central-1.amazonaws.com/ai-platform-backend:${{ github.sha }} alembic upgrade head",
 
+              "docker stop ai-platform-backend || true",
+              "docker rm ai-platform-backend || true",
+              "docker compose down || true",
+
               "IMAGE_TAG=${{ github.sha }} docker compose up -d",
 
               "for i in 1 2 3 4 5 6 7 8 9 10; do curl -fsS http://localhost/health && echo Backend is healthy && docker image prune -f && exit 0 || true; echo Waiting for backend...; sleep 3; done",
