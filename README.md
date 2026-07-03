@@ -1169,3 +1169,25 @@ A solid CI/CD pipeline:
 - Run Alembic migrations.
 - Replace the running container.
 - Verify with /health.
+
+```
+git push
+        │
+        ▼
+GitHub Actions
+        │
+        ├── build Docker image
+        ├── push → Amazon ECR
+        └── send SSM command
+                    │
+                    ▼
+               EC2 instance
+                    │
+        pull newest image
+        run migrations
+        restart container
+        health check
+                    │
+                    ▼
+        http://ec2-3-75-228-59.eu-central-1.compute.amazonaws.com/docs
+```
