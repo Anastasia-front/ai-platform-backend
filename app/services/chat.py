@@ -24,6 +24,7 @@ class ChatService:
         chat: Chat,
         user: User,
         content: str,
+        agent_name: str | None = None,
     ) -> tuple[Message, Message]:
 
         # ---------------------------------
@@ -64,7 +65,8 @@ class ChatService:
         # Agent
         # ---------------------------------
 
-        agent = AGENTS.get(chat.agent_name)
+        selected_agent_name = agent_name or chat.agent_name
+        agent = AGENTS.get(selected_agent_name)
 
         if agent is None:
             raise HTTPException(

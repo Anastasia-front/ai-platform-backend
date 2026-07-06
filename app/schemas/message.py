@@ -2,11 +2,12 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from app.enums import MessageRole
+from app.enums import AgentType, MessageRole
 
 
 class MessageCreate(BaseModel):
     content: str
+    agent_name: AgentType | None = None
 
 class SourceMetadata(BaseModel):
     document_id: int

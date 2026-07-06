@@ -61,6 +61,7 @@ async def create_message(
         chat=chat,
         user=user,
         content=payload.content,
+        agent_name=payload.agent_name,
     )
 
     return [user_msg, assistant_msg]
