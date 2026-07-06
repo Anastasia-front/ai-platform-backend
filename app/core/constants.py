@@ -30,3 +30,8 @@ ALLOWED_CONTENT_TYPES = {
 }
 
 SIMILARITY_THRESHOLD = 0.55
+
+PASSWORD_RULE_MESSAGE = (
+    "Password must be at least 6 characters and include an uppercase letter, "
+    "a number, and a special character."
+)
