@@ -6,10 +6,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import create_access_token, get_db
 from app.dependencies import get_current_user
 from app.models import User
-from app.schemas import RegisterRequest, UserResponse
+from app.schemas import GoogleLoginRequest, RegisterRequest, UserResponse
 from app.services import AuthService
 
 router = APIRouter()
+
+
+def token_response_for_user(user: User):
+    token = create_access_token({"sub": str(user.id)})
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+    }
 
 # -------------------------------------------------
 # REGISTER USER
@@ -44,12 +53,23 @@ async def login(
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token = create_access_token({"sub": str(user.id)})
+    return token_response_for_user(user)
 
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-    }
+
+@router.post("/google")
+async def google_login(
+    payload: GoogleLoginRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    user = await AuthService.get_or_create_google_user(db, payload.credential)
+
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Google authentication failed.",
+        )
+
+    return token_response_for_user(user)
 
 # -------------------------------------------------
 # GET CURRENT USER

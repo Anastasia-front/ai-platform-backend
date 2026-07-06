@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    GOOGLE_CLIENT_ID: str = ""
 
     CHAT_PROVIDER: ChatProvider = ChatProvider.OLLAMA
     EMBEDDING_PROVIDER: EmbeddingProvider = EmbeddingProvider.OLLAMA

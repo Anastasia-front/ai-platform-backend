@@ -1,5 +1,11 @@
 from .agent_run import AgentRunCreate, AgentRunResponse
-from .auth import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from .auth import (
+    GoogleLoginRequest,
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserResponse,
+)
 from .chat import ChatCreate, ChatResponse
 from .document import DocumentProcessingResponse, DocumentResponse
 from .document_chunk import DocumentChunkResponse
@@ -20,6 +26,7 @@ __all__ = [
     "DocumentChunkResponse",
     "DocumentProcessingResponse",
     "DocumentResponse",
+    "GoogleLoginRequest",
     "LoginRequest",
     "MessageCreate",
     "MessageResponse",
