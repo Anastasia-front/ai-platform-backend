@@ -80,10 +80,12 @@ jobs:
               "docker rm ai-platform-backend || true",
               "docker compose down || true",
 
-              "IMAGE_TAG=${{ github.sha }} docker compose up -d",
+              "export IMAGE_TAG=${{ github.sha }} && docker compose up -d",
 
               "for i in 1 2 3 4 5 6 7 8 9 10; do curl -fsS http://localhost/health && echo Backend is healthy && docker image prune -f && exit 0 || true; echo Waiting for backend...; sleep 3; done",
 
+              "docker ps -a",
+              "docker logs --tail=100 ai-platform-backend || true",
               "echo Deployment failed. Rolling back...",
               "PREVIOUS_IMAGE=$(cat previous_image.txt)",
               "if [ -n \"$PREVIOUS_IMAGE\" ]; then docker stop ai-platform-backend || true; docker rm ai-platform-backend || true; docker run -d --name ai-platform-backend --env-file .env -p 80:8000 --restart unless-stopped \"$PREVIOUS_IMAGE\"; fi",
