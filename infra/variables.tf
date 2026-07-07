@@ -27,6 +27,11 @@ variable "db_password" {
   sensitive = true
 }
 
+variable "google_client_id" {
+  type        = string
+  description = "OAuth client ID used by the backend to verify Google ID tokens."
+}
+
 variable "env_values" {
   type = map(string)
 

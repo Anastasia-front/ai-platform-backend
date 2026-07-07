@@ -56,9 +56,10 @@ module "ssm" {
   env_values = merge(
     var.env_values,
     {
-      DATABASE_URL  = "postgresql+asyncpg://${var.db_username}:${var.db_password}@${module.rds.endpoint}/app"
-      AWS_S3_BUCKET = module.s3.bucket_name
-      AWS_REGION    = var.aws_region
+      DATABASE_URL     = "postgresql+asyncpg://${var.db_username}:${var.db_password}@${module.rds.endpoint}/app"
+      AWS_S3_BUCKET    = module.s3.bucket_name
+      AWS_REGION       = var.aws_region
+      GOOGLE_CLIENT_ID = var.google_client_id
     }
   )
 }
