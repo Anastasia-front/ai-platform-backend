@@ -3,18 +3,36 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.dependencies import (
+    get_current_user,
     get_owned_workflow_run,
     get_workflow_event_repository,
+    get_workflow_run_repository,
     get_workflow_service,
 )
-from app.models import WorkflowRun
+from app.models import User, WorkflowRun
 from app.repositories import (
     WorkflowEventRepository,
+    WorkflowRunRepository,
 )
 from app.schemas import WorkflowEventResponse, WorkflowRunResponse
 from app.services import WorkflowService
 
 router = APIRouter()
+
+
+# -------------------------------------------------
+#  LIST WORKFLOW RUNS
+# -------------------------------------------------
+@router.get(
+    "/runs",
+    response_model=list[WorkflowRunResponse],
+)
+async def list_workflow_runs(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    runs: WorkflowRunRepository = Depends(get_workflow_run_repository),
+):
+    return await runs.list_for_user(db, user.id)
 
 # -------------------------------------------------
 #  GET SINGLE WORKFLOW RUN
@@ -48,9 +66,11 @@ async def resume_workflow(
     )
 
     return WorkflowRunResponse(
+        id=workflow_run.id,
         workflow_id=workflow_run.workflow_id,
         input=workflow_run.input,
         output=output,
+        status=workflow_run.status,
         created_at=workflow_run.created_at,
     )
 

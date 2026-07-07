@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, status
@@ -115,17 +114,19 @@ async def run_workflow(
     ),
     workflow: Workflow = Depends(get_owned_workflow),
 ):
-    output = await service.run_workflow(
+    workflow_run = await service.run_workflow(
         db=db,
         workflow_id=workflow.id,
         user_input=payload.input,
     )
 
     return WorkflowRunResponse(
+        id=workflow_run.id,
         workflow_id=workflow.id,
         input=payload.input,
-        output=output,
-        created_at=datetime.now(timezone.utc),
+        output=workflow_run.output,
+        status=workflow_run.status,
+        created_at=workflow_run.created_at,
     )
 
 

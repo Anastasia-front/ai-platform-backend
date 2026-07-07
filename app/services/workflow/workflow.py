@@ -25,7 +25,7 @@ class WorkflowService:
         user_input: str,
         max_retries: int = 3,
         continue_on_error: bool = True,
-    ) -> str:
+    ):
 
         workflow_run = await self.runs.create(
             db=db,
@@ -59,7 +59,8 @@ class WorkflowService:
 
         await db.commit()
 
-        return output or ""
+        await db.refresh(workflow_run)
+        return workflow_run
 
     async def run_workflow_stream(
         self,
