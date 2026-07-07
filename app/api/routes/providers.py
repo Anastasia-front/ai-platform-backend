@@ -16,7 +16,8 @@ from app.schemas.provider import (
     ProviderHealthResponse,
     ProvidersResponse,
 )
-from app.services import AIService, EmbeddingService, provider_config
+from app.services import AIService, EmbeddingService
+from app.services.provider_config import provider_config
 
 router = APIRouter()
 

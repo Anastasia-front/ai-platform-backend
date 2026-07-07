@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from app.api.router import router
 from app.core import AsyncSessionLocal
-from app.services import provider_config
+from app.services.provider_config import provider_config
 from app.services.workflow.recovery import (
     recover_running_workflows,
 )
