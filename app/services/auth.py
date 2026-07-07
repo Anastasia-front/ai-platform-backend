@@ -8,6 +8,10 @@ from app.core import hash_password, settings, verify_password
 from app.models import User
 
 
+class GoogleAuthError(Exception):
+    pass
+
+
 class AuthService:
     @staticmethod
     async def get_user_by_email(db: AsyncSession, email: str):
@@ -29,10 +33,10 @@ class AuthService:
     @staticmethod
     async def get_or_create_google_user(db: AsyncSession, credential: str):
         google_user = await AuthService.verify_google_credential(credential)
-        email = google_user.get("email") if google_user else None
+        email = google_user.get("email")
 
         if not email:
-            return None
+            raise GoogleAuthError("Google token did not include an email address.")
 
         user = await AuthService.get_user_by_email(db, email)
         if user:
@@ -44,7 +48,7 @@ class AuthService:
     @staticmethod
     async def verify_google_credential(credential: str):
         if not settings.GOOGLE_CLIENT_ID:
-            return None
+            raise GoogleAuthError("Backend GOOGLE_CLIENT_ID is not configured.")
 
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.get(
@@ -53,14 +57,20 @@ class AuthService:
             )
 
         if response.status_code != 200:
-            return None
+            try:
+                detail = response.json().get("error_description") or response.text
+            except ValueError:
+                detail = response.text
+            raise GoogleAuthError(f"Google token verification failed: {detail}")
 
         payload = response.json()
         if payload.get("aud") != settings.GOOGLE_CLIENT_ID:
-            return None
+            raise GoogleAuthError(
+                "Google token audience does not match backend GOOGLE_CLIENT_ID."
+            )
 
         if payload.get("email_verified") not in (True, "true", "True", "1"):
-            return None
+            raise GoogleAuthError("Google account email is not verified.")
 
         return payload
 

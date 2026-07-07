@@ -8,6 +8,7 @@ from app.dependencies import get_current_user
 from app.models import User
 from app.schemas import GoogleLoginRequest, RegisterRequest, UserResponse
 from app.services import AuthService
+from app.services.auth import GoogleAuthError
 
 router = APIRouter()
 
@@ -61,13 +62,13 @@ async def google_login(
     payload: GoogleLoginRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    user = await AuthService.get_or_create_google_user(db, payload.credential)
-
-    if not user:
+    try:
+        user = await AuthService.get_or_create_google_user(db, payload.credential)
+    except GoogleAuthError as exc:
         raise HTTPException(
             status_code=401,
-            detail="Google authentication failed.",
-        )
+            detail=str(exc),
+        ) from exc
 
     return token_response_for_user(user)
 
