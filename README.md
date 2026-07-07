@@ -1192,3 +1192,37 @@ GitHub Actions
                     ▼
         http://ec2-3-75-228-59.eu-central-1.compute.amazonaws.com/docs
 ```
+
+## Adding a new environment variable
+
+Whenever you add a new environment variable, update **both** places:
+
+### 1. Local development
+
+Add the variable to:
+
+```bash
+.env
+```
+
+### 2. AWS (Production)
+
+Add the variable to Terraform:
+
+```hcl
+infra/terraform.tfvars
+# or wherever env_vars are defined
+```
+
+Then apply the changes:
+
+```bash
+cd infra
+
+terraform plan
+terraform apply
+```
+
+Terraform will update the AWS SSM Parameter Store automatically.
+
+> **Reminder:** If you forget to update AWS SSM, the application will work locally but fail after deployment because the new variable will not exist on EC2.
