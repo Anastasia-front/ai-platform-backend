@@ -38,24 +38,8 @@ def get_workflow_service():
     )
 
 
-# singleton: simpler (one instance for the whole app)
-# slightly more efficient
-# no downside for a stateless service
-# when you swap in a real embedding model, you won't need to change the dependency
-# don't put mutable state into services later
-_embedding_service = EmbeddingService()
-
-
 def get_embedding_service() -> EmbeddingService:
-    global _embedding_service
-
-    if _embedding_service is None:
-        _embedding_service = EmbeddingService(
-            dimensions=768,
-            model_name=settings.OLLAMA_EMBEDDING_MODEL,
-        )
-
-    return _embedding_service
+    return EmbeddingService()
 
 
 def get_ai_service() -> AIService:
