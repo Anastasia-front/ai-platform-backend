@@ -2,27 +2,31 @@ import asyncio
 
 import httpx
 
-from app.core import settings
 from app.enums import EmbeddingProvider
+from app.services.provider_config import provider_config
 
 
 class EmbeddingService:
     def __init__(
         self,
-        provider: EmbeddingProvider = settings.EMBEDDING_PROVIDER,
-        model_name: str = settings.EMBEDDING_MODEL,
-        dimensions: int = settings.EMBEDDING_DIM,
-        base_url: str = settings.EMBEDDING_BASE_URL,
-        api_key: str = settings.EMBEDDING_API_KEY,
+        provider: EmbeddingProvider | None = None,
+        model_name: str | None = None,
+        dimensions: int | None = None,
+        base_url: str | None = None,
+        api_key: str | None = None,
     ):
+        config = provider_config.embeddings
+        if dimensions is None:
+            dimensions = config.dimensions
+
         if dimensions <= 0:
             raise ValueError("dimensions must be greater than 0")
 
-        self.provider = provider.lower()
-        self.model_name = model_name
+        self.provider = (provider or config.provider).lower()
+        self.model_name = model_name or config.model
         self._dimensions = dimensions
-        self.base_url = base_url.rstrip("/")
-        self.api_key = api_key
+        self.base_url = (base_url or config.base_url).rstrip("/")
+        self.api_key = api_key if api_key is not None else config.api_key
 
     # expose read-only API
     # but keep internal mutability control

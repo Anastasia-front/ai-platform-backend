@@ -11,6 +11,16 @@ from .document import DocumentProcessingResponse, DocumentResponse
 from .document_chunk import DocumentChunkResponse
 from .message import MessageCreate, MessageResponse
 from .project import ProjectCreate, ProjectResponse
+from .provider import (
+    ChatProviderConfigResponse,
+    ChatProviderConfigUpdate,
+    EmbeddingProviderConfigResponse,
+    EmbeddingProviderConfigUpdate,
+    ProviderConfigResponse,
+    ProviderHealthResponse,
+    ProvidersResponse,
+    ProviderStatus,
+)
 from .retrieval import RetrievalRequest, RetrievalResponse, RetrievalResult
 from .workflow import WorkflowCreate, WorkflowResponse
 from .workflow_event import WorkflowEventResponse
@@ -32,6 +42,14 @@ __all__ = [
     "MessageResponse",
     "ProjectCreate",
     "ProjectResponse",
+    "ChatProviderConfigResponse",
+    "ChatProviderConfigUpdate",
+    "EmbeddingProviderConfigResponse",
+    "EmbeddingProviderConfigUpdate",
+    "ProviderConfigResponse",
+    "ProviderHealthResponse",
+    "ProviderStatus",
+    "ProvidersResponse",
     "RegisterRequest",
     "RetrievalRequest",
     "RetrievalResponse",

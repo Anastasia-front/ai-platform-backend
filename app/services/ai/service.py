@@ -1,6 +1,5 @@
 import httpx
 
-from app.core import settings
 from app.enums import ChatProvider
 from app.services.ai.providers import (
     AIProvider,
@@ -9,22 +8,25 @@ from app.services.ai.providers import (
     OllamaProvider,
     OpenRouterProvider,
 )
+from app.services.provider_config import provider_config
 
 
 class AIService:
     def __init__(
         self,
-        provider: ChatProvider = settings.CHAT_PROVIDER,
-        model: str = settings.CHAT_MODEL,
-        fallback_model: str | None = settings.CHAT_FALLBACK_MODEL,
-        base_url: str = settings.CHAT_BASE_URL,
-        api_key: str = settings.CHAT_API_KEY,
+        provider: ChatProvider | None = None,
+        model: str | None = None,
+        fallback_model: str | None = None,
+        base_url: str | None = None,
+        api_key: str | None = None,
     ):
-        self.provider_name = provider
-        self.model = model
-        self.fallback_model = fallback_model
-        self.base_url = base_url
-        self.api_key = api_key
+        config = provider_config.chat
+
+        self.provider_name = provider or config.provider
+        self.model = model or config.model
+        self.fallback_model = fallback_model if fallback_model is not None else config.fallback_model
+        self.base_url = base_url or config.base_url
+        self.api_key = api_key if api_key is not None else config.api_key
 
         self.provider = self._build_provider()
 

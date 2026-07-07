@@ -5,6 +5,7 @@ from .document import Document
 from .document_chunk import DocumentChunk
 from .message import Message
 from .project import Project
+from .provider_config import ProviderConfig
 from .user import User
 from .workflow import Workflow
 from .workflow_run import WorkflowRun
@@ -20,6 +21,7 @@ __all__ = [
     "DocumentChunk",
     "Message",
     "Project",
+    "ProviderConfig",
     "User",
     "Workflow",
     "WorkflowRun",

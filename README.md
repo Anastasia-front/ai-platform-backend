@@ -63,14 +63,15 @@ openssl rand -base64 32
 cp .env.example .env
 ```
 
-Then ensure `.env` contains:
+Then ensure `.env` contains all needed variables.
+
+For PROVIDER_CONFIG_ENCRYPTION_KEY use:
 
 ```text
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/ai_platform
-JWT_SECRET=your_generated_secret_here
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
+
+Then copy the printed value into .env
 
 ### 3. Verify environment setup
 

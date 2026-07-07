@@ -12,6 +12,7 @@ from .extractors import (
     TextExtractor,
     TxtExtractor,
 )
+from .provider_config import ProviderConfigService
 from .rag import RAGService
 from .retrieval import RetrievalService
 from .workflow.workflow import WorkflowService
@@ -27,6 +28,7 @@ __all__ = [
     "EmbeddingManagementService",
     "EmbeddingService",
     "PdfExtractor",
+    "ProviderConfigService",
     "RAGService",
     "RetrievalService",
     "TextExtractor",

@@ -23,6 +23,7 @@ class Settings(BaseSettings):
 
     CHAT_API_KEY: str = ""
     EMBEDDING_API_KEY: str = ""
+    PROVIDER_CONFIG_ENCRYPTION_KEY: str = ""
 
     CHAT_MODEL: str = "gemma2:2b"
     CHAT_FALLBACK_MODEL: str = "llama3.2:3b"

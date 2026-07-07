@@ -6,6 +6,7 @@ from .constants import (
     PASSWORD_RULE_MESSAGE,
     SIMILARITY_THRESHOLD,
 )
+from .crypto import decrypt_secret, encrypt_secret
 from .database import AsyncSessionLocal, Base, engine, get_db
 from .security import (
     create_access_token,
@@ -25,6 +26,8 @@ __all__ = [
     "SIMILARITY_THRESHOLD",
     "create_access_token",
     "decode_access_token",
+    "decrypt_secret",
+    "encrypt_secret",
     "engine",
     "get_db",
     "hash_password",

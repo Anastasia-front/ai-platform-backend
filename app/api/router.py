@@ -9,6 +9,7 @@ from app.api.routes import (
     health,
     messages,
     projects,
+    providers,
     workflow_runs,
     workflow_steps,
     workflows,
@@ -67,6 +68,12 @@ router.include_router(
 router.include_router(
     embeddings.router, 
     tags=["Embeddings"]
+)
+
+router.include_router(
+    providers.router,
+    prefix="/providers", 
+    tags=["Providers"]
 )
 
 router.include_router(
