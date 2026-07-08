@@ -104,6 +104,7 @@ class EmbeddingService:
                 json={
                     "model": self.model_name,
                     "input": text,
+                    "dimensions": self.dimensions,
                 },
             )
 

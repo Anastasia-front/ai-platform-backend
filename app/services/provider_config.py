@@ -307,7 +307,7 @@ class ProviderConfigService:
     def _default_embedding_base_url(self, provider: EmbeddingProvider) -> str:
         defaults = {
             # EmbeddingProvider.OLLAMA: settings.EMBEDDING_BASE_URL,
-            ChatProvider.OLLAMA: "http://localhost:11434",
+            EmbeddingProvider.OLLAMA: "http://localhost:11434",
             EmbeddingProvider.OPENROUTER: "https://openrouter.ai/api/v1",
             EmbeddingProvider.GEMINI: "https://generativelanguage.googleapis.com/v1beta",
         }
