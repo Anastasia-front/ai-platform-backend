@@ -1226,3 +1226,102 @@ terraform apply
 Terraform will update the AWS SSM Parameter Store automatically.
 
 > **Reminder:** If you forget to update AWS SSM, the application will work locally but fail after deployment because the new variable will not exist on EC2.
+
+TODO:
+
+### TERRAFORM NETWORK CONFIGURATION
+
+Today (backend only)
+
+```
+Internet
+      │
+      ▼
+EC2
+ ├── 22  -> only your IPs
+ ├── 80  -> open (API)
+ └── 443 -> open (when HTTPS is enabled)
+```
+
+Later (frontend + backend)
+
+```
+Internet
+      │
+      ▼
+Frontend EC2
+ ├──22   -> your IPs
+ ├──80   -> everyone
+ └──443  -> everyone
+
+        │ REST API
+
+Backend EC2
+ ├──22   -> your IPs
+ ├──80/443 -> preferably only frontend SG or Load Balancer
+ └──5432 -> only RDS SG
+```
+
+- SSH (22) → restricted to your IP(s)
+- HTTP (80) → open to everyone if you're serving a website
+- HTTPS (443) → open to everyone if you're serving a website
+
+UPDATE:
+
+- variables.tf
+
+```
+variable "ssh_allowed_cidrs" {
+type = list(string)
+}
+
+variable "http_allowed_cidrs" {
+type = list(string)
+}
+
+variable "https_allowed_cidrs" {
+type = list(string)
+}
+```
+
+- terraform.tfvars:
+
+```
+ssh_allowed_cidrs = [
+"149.232.202.17/32",
+"93.1.106.242/32",
+]
+
+http_allowed_cidrs = [
+"0.0.0.0/0",
+]
+
+https_allowed_cidrs = [
+"0.0.0.0/0",
+]
+```
+
+main.tf
+
+```
+ingress {
+from_port = 22
+to_port = 22
+protocol = "tcp"
+cidr_blocks = var.ssh_allowed_cidrs
+}
+
+ingress {
+from_port = 80
+to_port = 80
+protocol = "tcp"
+cidr_blocks = var.http_allowed_cidrs
+}
+
+ingress {
+from_port = 443
+to_port = 443
+protocol = "tcp"
+cidr_blocks = var.https_allowed_cidrs
+}
+```

@@ -18,7 +18,7 @@ resource "aws_security_group" "ec2" {
     to_port   = 22
     protocol  = "tcp"
 
-    cidr_blocks = [var.ssh_allowed_cidr]
+    cidr_blocks = var.ssh_allowed_cidrs
   }
 
   ingress {
@@ -26,7 +26,7 @@ resource "aws_security_group" "ec2" {
     to_port   = 80
     protocol  = "tcp"
 
-    cidr_blocks = [var.ssh_allowed_cidr]
+    cidr_blocks = var.ssh_allowed_cidrs
   }
 
   egress {

@@ -2,7 +2,7 @@ module "network" {
   source = "./modules/network"
 
   project_name     = var.project_name
-  ssh_allowed_cidr = var.ssh_allowed_cidr
+  ssh_allowed_cidrs = var.ssh_allowed_cidrs
 }
 
 
