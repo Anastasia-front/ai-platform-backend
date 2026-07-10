@@ -2,6 +2,7 @@ from .agent_run import AgentRunCreate, AgentRunResponse
 from .auth import (
     GoogleLoginRequest,
     LoginRequest,
+    RefreshTokenRequest,
     RegisterRequest,
     TokenResponse,
     UserResponse,
@@ -51,6 +52,7 @@ __all__ = [
     "ProviderStatus",
     "ProvidersResponse",
     "RegisterRequest",
+    "RefreshTokenRequest",
     "RetrievalRequest",
     "RetrievalResponse",
     "RetrievalResult",
