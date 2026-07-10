@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import StreamingResponse
 
@@ -114,20 +114,19 @@ async def run_workflow(
     ),
     workflow: Workflow = Depends(get_owned_workflow),
 ):
-    workflow_run = await service.run_workflow(
-        db=db,
-        workflow_id=workflow.id,
-        user_input=payload.input,
-    )
+    try:
+        workflow_run = await service.run_workflow(
+            db=db,
+            workflow_id=workflow.id,
+            user_input=payload.input,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
 
-    return WorkflowRunResponse(
-        id=workflow_run.id,
-        workflow_id=workflow.id,
-        input=payload.input,
-        output=workflow_run.output,
-        status=workflow_run.status,
-        created_at=workflow_run.created_at,
-    )
+    return service.run_response(workflow_run)
 
 
 # -------------------------------------------------

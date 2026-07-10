@@ -1,8 +1,10 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models import WorkflowRun
 from app.repositories import (
     WorkflowRunRepository,
 )
+from app.schemas import WorkflowRunResponse
 from app.services.workflow import DAGEngine, EventBus
 
 
@@ -17,6 +19,20 @@ class WorkflowService:
         self.runs = runs
         self.events = events
         self.engine = engine
+
+    @staticmethod
+    def run_response(
+        workflow_run: WorkflowRun,
+        output: str | None = None,
+    ) -> WorkflowRunResponse:
+        return WorkflowRunResponse(
+            id=workflow_run.id,
+            workflow_id=workflow_run.workflow_id,
+            input=workflow_run.input,
+            output=workflow_run.output if output is None else output,
+            status=workflow_run.status,
+            created_at=workflow_run.created_at,
+        )
 
     async def run_workflow(
         self,

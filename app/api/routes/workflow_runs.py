@@ -65,14 +65,7 @@ async def resume_workflow(
         run_id=run_id,
     )
 
-    return WorkflowRunResponse(
-        id=workflow_run.id,
-        workflow_id=workflow_run.workflow_id,
-        input=workflow_run.input,
-        output=output,
-        status=workflow_run.status,
-        created_at=workflow_run.created_at,
-    )
+    return service.run_response(workflow_run, output=output)
 
 
 # add later:
