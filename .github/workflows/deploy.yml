@@ -82,13 +82,16 @@ jobs:
 
               "export IMAGE_TAG=${{ github.sha }} && docker compose pull backend && docker compose up -d backend",
 
-              "for i in 1 2 3 4 5 6 7 8 9 10; do curl -fsS http://localhost/health && echo Backend is healthy && docker image prune -f && exit 0 || true; echo Waiting for backend...; sleep 3; done",
+              "for i in 1 2 3 4 5 6 7 8 9 10; do curl -fsS http://localhost/health && echo Backend is healthy && docker image prune -a -f --filter \"until=72h\" && exit 0 || true; echo Waiting for backend...; sleep 3; done",
 
               "docker ps -a",
               "docker logs --tail=100 ai-platform-backend || true",
               "echo Deployment failed. Rolling back...",
+              "FAILED_IMAGE=377193654975.dkr.ecr.eu-central-1.amazonaws.com/ai-platform-backend:${{ github.sha }}",
               "PREVIOUS_IMAGE=$(cat previous_image.txt)",
               "if [ -n \"$PREVIOUS_IMAGE\" ]; then docker stop ai-platform-backend || true; docker rm ai-platform-backend || true; docker run -d --name ai-platform-backend --env-file .env -p 80:8000 --restart unless-stopped \"$PREVIOUS_IMAGE\"; fi",
+              "docker image rm \"$FAILED_IMAGE\" || true",
+              "docker image prune -a -f --filter \"until=72h\" || true",
               "docker logs --tail=100 ai-platform-backend || true",
               "exit 1"
             ],executionTimeout=["1800"]' \
