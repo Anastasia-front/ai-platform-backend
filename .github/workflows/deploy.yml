@@ -91,7 +91,7 @@ jobs:
               "if [ -n \"$PREVIOUS_IMAGE\" ]; then docker stop ai-platform-backend || true; docker rm ai-platform-backend || true; docker run -d --name ai-platform-backend --env-file .env -p 80:8000 --restart unless-stopped \"$PREVIOUS_IMAGE\"; fi",
               "docker logs --tail=100 ai-platform-backend || true",
               "exit 1"
-            ],executionTimeout=[\"1800\"]' \
+            ],executionTimeout=["1800"]' \
             --query "Command.CommandId" \
             --output text)
 
