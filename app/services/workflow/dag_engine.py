@@ -41,7 +41,7 @@ class DAGEngine:
         def dfs(node):
 
             if node in stack:
-                raise Exception(
+                raise ValueError(
                     "Cycle detected in workflow DAG"
                 )
 
@@ -58,6 +58,38 @@ class DAGEngine:
 
         for node in graph:
             dfs(node)
+
+    def validate_dependencies(
+        self,
+        steps: list[WorkflowStep],
+    ):
+        step_ids = {
+            step.id
+            for step in steps
+        }
+
+        missing_dependencies = {
+            step.id: [
+                dep
+                for dep in (step.depends_on or [])
+                if dep not in step_ids
+            ]
+            for step in steps
+        }
+        missing_dependencies = {
+            step_id: deps
+            for step_id, deps in missing_dependencies.items()
+            if deps
+        }
+
+        if missing_dependencies:
+            details = ", ".join(
+                f"step {step_id} depends on missing step(s) {deps}"
+                for step_id, deps in missing_dependencies.items()
+            )
+            raise ValueError(
+                f"Invalid workflow DAG: {details}"
+            )
 
     # =====================================================
     # CONDITIONAL EXECUTION
@@ -126,6 +158,36 @@ class DAGEngine:
 
         return ready
 
+    def get_skipped_steps(
+        self,
+        pending_steps,
+        completed_steps,
+        outputs,
+        user_input,
+    ):
+        skipped = []
+
+        for step in pending_steps.values():
+
+            deps = step.depends_on or []
+
+            if not all(
+                dep in completed_steps
+                for dep in deps
+            ):
+                continue
+
+            if self.evaluate_condition(
+                step.condition,
+                outputs,
+                user_input,
+            ):
+                continue
+
+            skipped.append(step)
+
+        return skipped
+
     # =====================================================
     # DAG EXECUTION
     # =====================================================
@@ -150,6 +212,7 @@ class DAGEngine:
             await db.flush()
             return ""
 
+        self.validate_dependencies(steps)
         self.detect_cycles(steps)
 
         pending_steps = {
@@ -201,10 +264,36 @@ class DAGEngine:
                 user_input,
             )
 
-            if not ready_steps:
-                raise Exception(
+            skipped_steps = self.get_skipped_steps(
+                pending_steps,
+                completed_steps,
+                completed_outputs,
+                user_input,
+            )
+
+            if not ready_steps and not skipped_steps:
+                raise ValueError(
                     "Deadlock detected in DAG"
                 )
+
+            for step in skipped_steps:
+                pending_steps.pop(step.id)
+                completed_steps.add(step.id)
+
+                await self.events.emit(
+                    db,
+                    workflow_run.id,
+                    "step_skipped",
+                    {
+                        "step_id": step.id,
+                        "name": step.name,
+                        "condition": step.condition,
+                    },
+                )
+
+            if not ready_steps:
+                await db.flush()
+                continue
 
             # remove from pending
             for step in ready_steps:
@@ -356,6 +445,11 @@ class DAGEngine:
                             ],
                         },
                     )
+
+                    if continue_on_error:
+                        completed_steps.add(
+                            result["step_id"]
+                        )
 
                     if not continue_on_error:
 
