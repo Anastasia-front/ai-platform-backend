@@ -12,7 +12,8 @@ class Settings(BaseSettings):
 
     JWT_SECRET: str
     ALGORITHM: str
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_MINUTES: int = 43200
     GOOGLE_CLIENT_ID: str = ""
 
     CHAT_PROVIDER: ChatProvider = ChatProvider.OLLAMA

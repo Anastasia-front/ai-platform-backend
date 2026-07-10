@@ -1,5 +1,5 @@
 from .ai import AIService
-from .auth import AuthService
+from .auth import AuthService, AuthTokenError
 from .chat import ChatService
 from .chunk import ChunkService
 from .document import DocumentService
@@ -20,6 +20,7 @@ from .workflow.workflow import WorkflowService
 __all__ = [
     "AIService",
     "AuthService",
+    "AuthTokenError",
     "ChatService",
     "ChunkService",
     "DEFAULT_EXTRACTORS",

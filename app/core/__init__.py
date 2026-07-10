@@ -10,6 +10,7 @@ from .crypto import decrypt_secret, encrypt_secret
 from .database import AsyncSessionLocal, Base, engine, get_db
 from .security import (
     create_access_token,
+    create_refresh_token,
     decode_access_token,
     hash_password,
     oauth2_scheme,
@@ -25,6 +26,7 @@ __all__ = [
     "PASSWORD_RULE_MESSAGE",
     "SIMILARITY_THRESHOLD",
     "create_access_token",
+    "create_refresh_token",
     "decode_access_token",
     "decrypt_secret",
     "encrypt_secret",

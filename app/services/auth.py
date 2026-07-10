@@ -1,22 +1,74 @@
 from uuid import uuid4
 
 import httpx
+from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import hash_password, settings, verify_password
+from app.core import (
+    create_access_token,
+    create_refresh_token,
+    decode_access_token,
+    hash_password,
+    settings,
+    verify_password,
+)
 from app.models import User
+from app.schemas import TokenResponse
 
 
 class GoogleAuthError(Exception):
     pass
 
 
+class AuthTokenError(Exception):
+    pass
+
+
 class AuthService:
+    @staticmethod
+    def token_response_for_user(user: User) -> TokenResponse:
+        return TokenResponse(
+            access_token=create_access_token({"sub": str(user.id)}),
+            refresh_token=create_refresh_token({"sub": str(user.id)}),
+            token_type="bearer",
+            expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            refresh_expires_in=settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60,
+        )
+
     @staticmethod
     async def get_user_by_email(db: AsyncSession, email: str):
         result = await db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
+
+    @staticmethod
+    async def get_user_by_refresh_token(
+        db: AsyncSession,
+        refresh_token: str,
+    ) -> User:
+        try:
+            payload = decode_access_token(refresh_token)
+            if payload.get("typ") != "refresh":
+                raise AuthTokenError("Invalid refresh token")
+            user_id = int(payload.get("sub"))
+        except (JWTError, TypeError, ValueError) as exc:
+            raise AuthTokenError("Invalid refresh token") from exc
+
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+
+        if not user:
+            raise AuthTokenError("User not found")
+
+        return user
+
+    @staticmethod
+    async def refresh_token(
+        db: AsyncSession,
+        refresh_token: str,
+    ) -> TokenResponse:
+        user = await AuthService.get_user_by_refresh_token(db, refresh_token)
+        return AuthService.token_response_for_user(user)
 
     @staticmethod
     async def create_user(db: AsyncSession, email: str, password: str):

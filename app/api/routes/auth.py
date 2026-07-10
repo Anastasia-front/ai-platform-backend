@@ -3,23 +3,21 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import create_access_token, get_db
+from app.core import get_db
 from app.dependencies import get_current_user
 from app.models import User
-from app.schemas import GoogleLoginRequest, RegisterRequest, UserResponse
-from app.services import AuthService
+from app.schemas import (
+    GoogleLoginRequest,
+    RefreshTokenRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserResponse,
+)
+from app.services import AuthService, AuthTokenError
 from app.services.auth import GoogleAuthError
 
 router = APIRouter()
 
-
-def token_response_for_user(user: User):
-    token = create_access_token({"sub": str(user.id)})
-
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-    }
 
 # -------------------------------------------------
 # REGISTER USER
@@ -44,7 +42,7 @@ async def register(
 # -------------------------------------------------
 # LOGIN USER
 # -------------------------------------------------
-@router.post("/login")
+@router.post("/login", response_model=TokenResponse)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
@@ -54,10 +52,12 @@ async def login(
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    return token_response_for_user(user)
+    return AuthService.token_response_for_user(user)
 
-
-@router.post("/google")
+# -------------------------------------------------
+# GOOGLE AUTH
+# -------------------------------------------------
+@router.post("/google", response_model=TokenResponse)
 async def google_login(
     payload: GoogleLoginRequest,
     db: AsyncSession = Depends(get_db),
@@ -70,7 +70,20 @@ async def google_login(
             detail=str(exc),
         ) from exc
 
-    return token_response_for_user(user)
+    return AuthService.token_response_for_user(user)
+
+# -------------------------------------------------
+# REFRESH TOKEN
+# -------------------------------------------------
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_token(
+    payload: RefreshTokenRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        return await AuthService.refresh_token(db, payload.refresh_token)
+    except AuthTokenError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
 
 # -------------------------------------------------
 # GET CURRENT USER

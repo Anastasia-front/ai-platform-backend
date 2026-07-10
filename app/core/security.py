@@ -26,7 +26,21 @@ def create_access_token(data: dict, expires_minutes: int | None = None):
         minutes=expires_minutes or settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
 
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "typ": "access"})
+
+    return jwt.encode(
+        to_encode,
+        settings.JWT_SECRET,
+        algorithm=settings.ALGORITHM,
+    )
+
+
+def create_refresh_token(data: dict, expires_minutes: int | None = None):
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(
+        minutes=expires_minutes or settings.REFRESH_TOKEN_EXPIRE_MINUTES
+    )
+    to_encode.update({"exp": expire, "typ": "refresh"})
 
     return jwt.encode(
         to_encode,
