@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     AWS_S3_BUCKET: str = "ai-platform-uploads"
     AWS_REGION: str = "eu-central-1"
 
+    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore",

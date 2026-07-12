@@ -1,3 +1,5 @@
+from .celery_app import celery_app
+from .celery_database import CelerySessionLocal, safe_database_url
 from .config import settings
 from .constants import (
     ALLOWED_CONTENT_TYPES,
@@ -36,4 +38,7 @@ __all__ = [
     "oauth2_scheme",
     "settings",
     "verify_password",
+    "celery_app",
+    "CelerySessionLocal",
+    "safe_database_url",
 ]
