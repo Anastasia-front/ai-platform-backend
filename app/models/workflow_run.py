@@ -22,9 +22,12 @@ class WorkflowRun(TimestampMixin, Base):
 
     status: Mapped[str] = mapped_column(
         String,
-        default= WorkflowRunStatus.RUNNING,
+        default=WorkflowRunStatus.PENDING,
         nullable=False,
     )
+
+    celery_task_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     workflow = relationship("Workflow", backref="runs")
     step_runs = relationship(

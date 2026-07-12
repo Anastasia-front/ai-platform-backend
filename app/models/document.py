@@ -44,6 +44,9 @@ class Document(TimestampMixin, Base):
     processing_finished_at = mapped_column(DateTime(timezone=True), nullable=True)
     processing_duration_ms = mapped_column(Integer, nullable=True)
 
+    celery_task_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    processing_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     embedding_status: Mapped[EmbeddingStatus] = mapped_column(
         Enum(
             EmbeddingStatus,
