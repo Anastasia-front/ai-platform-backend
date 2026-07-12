@@ -16,6 +16,8 @@ class DocumentResponse(DocumentBase):
     id: int
     project_id: int
     status: DocumentStatus
+    embedding_status: EmbeddingStatus
+    processing_error: str | None = None
     text: str | None = None
     created_at: datetime
     updated_at: datetime
@@ -25,8 +27,10 @@ class DocumentResponse(DocumentBase):
 class DocumentProcessingResponse(BaseModel):
     id: int
     status: DocumentStatus
+    celery_task_id: str | None = None
     processing_started_at: datetime | None = None
     processing_finished_at: datetime | None = None
     processing_duration_ms: int | None = None
+    processing_error: str | None = None
     embedding_status: EmbeddingStatus
     chunk_count: int | None = None
