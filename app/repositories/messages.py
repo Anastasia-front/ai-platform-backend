@@ -52,3 +52,14 @@ class MessageRepository:
         await db.delete(message)
 
         await db.flush()
+
+    async def commit_pair(
+        self,
+        db: AsyncSession,
+        first: Message,
+        second: Message,
+    ) -> tuple[Message, Message]:
+        await db.commit()
+        await db.refresh(first)
+        await db.refresh(second)
+        return first, second

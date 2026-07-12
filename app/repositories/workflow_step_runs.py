@@ -72,3 +72,6 @@ class WorkflowStepRunRepository:
         )
 
         return result.scalar_one_or_none()
+
+    async def flush(self, db: AsyncSession) -> None:
+        await db.flush()

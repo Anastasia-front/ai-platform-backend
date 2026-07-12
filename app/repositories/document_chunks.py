@@ -1,7 +1,7 @@
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import DocumentChunk
+from app.models import ChunkEmbedding, DocumentChunk
 
 
 class DocumentChunkRepository:
@@ -49,6 +49,32 @@ class DocumentChunkRepository:
             select(DocumentChunk)
             .where(DocumentChunk.document_id == document_id)
             .order_by(DocumentChunk.chunk_index)
+        )
+
+        return list(result.scalars().all())
+
+    async def list_missing_embeddings_for_project(
+        self,
+        db: AsyncSession,
+        project_id: int,
+        provider: str,
+        model_name: str,
+    ) -> list[DocumentChunk]:
+        result = await db.execute(
+            select(DocumentChunk)
+            .outerjoin(
+                ChunkEmbedding,
+                (
+                    (ChunkEmbedding.chunk_id == DocumentChunk.id)
+                    & (ChunkEmbedding.provider == provider)
+                    & (ChunkEmbedding.model_name == model_name)
+                ),
+            )
+            .where(
+                DocumentChunk.document.has(project_id=project_id),
+                ChunkEmbedding.id.is_(None),
+            )
+            .order_by(DocumentChunk.document_id, DocumentChunk.chunk_index)
         )
 
         return list(result.scalars().all())
