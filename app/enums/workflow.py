@@ -7,3 +7,4 @@ class WorkflowRunStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     PAUSED = "paused"
+    CANCELED = "canceled"

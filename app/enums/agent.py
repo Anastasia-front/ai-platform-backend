@@ -13,4 +13,5 @@ class AgentType(str, Enum):
     ASSISTANT = "assistant"
     BASE = "base"
     CODING = "coding"
+    PROJECT = "project"
     RESEARCH = "research"
