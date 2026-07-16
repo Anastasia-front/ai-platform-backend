@@ -174,6 +174,31 @@ ReDoc:
 http://127.0.0.1:8000/redoc
 ```
 
+### 7b. Background jobs (Celery + Redis)
+
+Document processing, embedding rebuild/sync, and workflow runs execute in a
+separate Celery worker process backed by Redis -- not inside the FastAPI
+request. Postgres remains the source of truth for status; Redis is only the
+broker.
+
+Start Redis (already included in `docker compose up -d`, see step 4):
+
+```bash
+docker compose up -d redis
+```
+
+Start the worker (separate terminal, same venv/.env as the API):
+
+```bash
+celery -A app.core.celery_app worker --loglevel=info
+```
+
+`CELERY_BROKER_URL` defaults to `redis://localhost:6379/0` (see `.env.example`).
+
+If the worker is not running, start/process/sync/run requests will still
+return `202` immediately and create a `queued`/`pending` record, but nothing
+will pick the job up until a worker is started.
+
 ### 8. Auth testing
 
 Register user:
@@ -1324,4 +1349,60 @@ to_port = 443
 protocol = "tcp"
 cidr_blocks = var.https_allowed_cidrs
 }
+```
+
+## Redis + Celery worker
+
+Document-processing flow
+
+```
+POST /documents/{id}/process
+        ↓
+document.status = queued
+        ↓
+Celery task is created
+        ↓
+HTTP 202 returned immediately
+        ↓
+worker receives documents.process
+        ↓
+document.status = processing
+        ↓
+extract → chunk → embed
+        ↓
+document.status = indexed
+```
+
+On failure:
+
+```
+document.status = failed
+document.error = actual error message
+```
+
+Workflow flow:
+
+```
+POST /workflows/{id}/run
+        ↓
+workflow_run.status = pending
+        ↓
+Celery task queued
+        ↓
+HTTP 202 with run_id
+        ↓
+frontend stays on workflow page
+        ↓
+frontend polls workflow run status
+        ↓
+pending → running → completed
+        ↓
+redirect to execution page only after completed
+```
+
+On failure:
+
+```
+status = failed
+error = actual error
 ```
