@@ -69,3 +69,15 @@ class ProjectRepository:
         await db.delete(project)
 
         await db.flush()
+
+    async def update_name(
+        self,
+        db: AsyncSession,
+        project: Project,
+        name: str,
+    ):
+        project.name = name
+        await db.flush()
+        await db.refresh(project)
+
+        return project

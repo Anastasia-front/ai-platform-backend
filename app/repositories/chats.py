@@ -65,3 +65,15 @@ class ChatRepository:
         await db.delete(chat)
 
         await db.flush()
+
+    async def update_name(
+        self,
+        db: AsyncSession,
+        chat: Chat,
+        name: str,
+    ):
+        chat.name = name
+        await db.flush()
+        await db.refresh(chat)
+
+        return chat
