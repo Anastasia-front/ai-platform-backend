@@ -1,4 +1,4 @@
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import ChunkEmbedding, DocumentChunk
@@ -41,6 +41,29 @@ class ChunkEmbeddingRepository:
                 ChunkEmbedding.chunk_id.in_([chunk.id for chunk in chunks]),
                 ChunkEmbedding.provider == provider,
                 ChunkEmbedding.model_name == model_name,
+            )
+        )
+        await db.flush()
+
+    async def delete_dimension_mismatches_for_project(
+        self,
+        db: AsyncSession,
+        *,
+        project_id: int,
+        provider: str,
+        model_name: str,
+        dimensions: int,
+    ) -> None:
+        await db.execute(
+            delete(ChunkEmbedding).where(
+                ChunkEmbedding.chunk_id.in_(
+                    select(DocumentChunk.id).where(
+                        DocumentChunk.document.has(project_id=project_id)
+                    )
+                ),
+                ChunkEmbedding.provider == provider,
+                ChunkEmbedding.model_name == model_name,
+                ChunkEmbedding.dimensions != dimensions,
             )
         )
         await db.flush()
