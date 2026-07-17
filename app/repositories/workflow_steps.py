@@ -24,6 +24,7 @@ class WorkflowStepRepository:
             .join(Project)
             .where(
                 WorkflowStep.id == step_id,
+                Workflow.deleted_at.is_(None),
             )
         )
 
@@ -48,6 +49,7 @@ class WorkflowStepRepository:
             .where(
                 WorkflowStep.id == step_id,
                 Project.user_id == user_id,
+                Workflow.deleted_at.is_(None),
             )
             .options(selectinload(WorkflowStep.workflow).selectinload(Workflow.project))
         )
@@ -71,6 +73,7 @@ class WorkflowStepRepository:
             )
             .where(
                 Project.user_id == user_id,
+                Workflow.deleted_at.is_(None),
             )
             .order_by(
                 WorkflowStep.step_order,
