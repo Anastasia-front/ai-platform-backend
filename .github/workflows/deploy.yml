@@ -6,11 +6,12 @@ on:
       - main
 
 env:
-  AWS_REGION: eu-central-1
-  ECR_REGISTRY: 377193654975.dkr.ecr.eu-central-1.amazonaws.com
-  ECR_REPOSITORY: ai-platform-backend
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}
+  ECR_REPOSITORY: ${{ vars.BACKEND_ECR_REPOSITORY }}
   IMAGE_TAG: ${{ github.sha }}
   CONTAINER_NAME: ai-platform-backend
+  SSM_PARAMETER_PATH: ${{ vars.SSM_PARAMETER_PATH }}
 
 jobs:
   deploy:
@@ -57,42 +58,43 @@ jobs:
             --timeout-seconds 1800 \
             --parameters 'commands=[
               "set -e",
-              "AWS_REGION=eu-central-1",
-              "ECR_REGISTRY=377193654975.dkr.ecr.eu-central-1.amazonaws.com",
-              "ECR_REPOSITORY=ai-platform-backend",
+              AWS_REGION=${{ env.AWS_REGION }},
+              "ECR_REGISTRY=${{ env.ECR_REGISTRY }}",
+              "ECR_REPOSITORY=${{ env.ECR_REPOSITORY }}",
               "IMAGE_TAG=${{ github.sha }}",
-              "CONTAINER_NAME=ai-platform-backend",
+              "CONTAINER_NAME=${{ env.CONTAINER_NAME }}",
+              "SSM_PARAMETER_PATH=${{ env.SSM_PARAMETER_PATH }}",
               "DEPLOY_DIR=/home/ubuntu/ai-platform-deploy",
               "mkdir -p $DEPLOY_DIR",
               "cd $DEPLOY_DIR",
 
-              "aws ssm get-parameters-by-path --path /ai-platform --with-decryption --region eu-central-1 --recursive --query \"Parameters[*].[Name,Value]\" --output text | awk -F\"\t\" '\''{split($1,a,\"/\"); print a[length(a)]\"=\"$2}'\'' > .env",
+              "aws ssm get-parameters-by-path --path $SSM_PARAMETER_PATH --with-decryption --region $AWS_REGION --recursive --query \"Parameters[*].[Name,Value]\" --output text | awk -F\"\t\" '\''{split($1,a,\"/\"); print a[length(a)]\"=\"$2}'\'' > .env",
 
-              "PREVIOUS_IMAGE=$(docker inspect ai-platform-backend --format='\''{{.Config.Image}}'\'' 2>/dev/null || true)",
+              "PREVIOUS_IMAGE=$(docker inspect $CONTAINER_NAME --format='\''{{.Config.Image}}'\'' 2>/dev/null || true)",
               "echo \"$PREVIOUS_IMAGE\" > previous_image.txt",
 
-              "aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 377193654975.dkr.ecr.eu-central-1.amazonaws.com",
+              "aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY",
 
-              "docker pull 377193654975.dkr.ecr.eu-central-1.amazonaws.com/ai-platform-backend:${{ github.sha }}",
+              "docker pull $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG",
 
-              "docker run --rm --env-file .env 377193654975.dkr.ecr.eu-central-1.amazonaws.com/ai-platform-backend:${{ github.sha }} alembic upgrade head",
+              "docker run --rm --env-file .env $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG alembic upgrade head",
 
-              "docker stop ai-platform-backend || true",
-              "docker rm ai-platform-backend || true",
+              "docker stop $CONTAINER_NAME || true",
+              "docker rm $CONTAINER_NAME || true",
 
               "export IMAGE_TAG=${{ github.sha }} && docker compose pull backend && docker compose up -d backend",
 
               "for i in 1 2 3 4 5 6 7 8 9 10; do curl -fsS http://localhost/health && echo Backend is healthy && docker image prune -a -f --filter \"until=72h\" && exit 0 || true; echo Waiting for backend...; sleep 3; done",
 
               "docker ps -a",
-              "docker logs --tail=100 ai-platform-backend || true",
+              "docker logs --tail=100 $CONTAINER_NAME || true",
               "echo Deployment failed. Rolling back...",
-              "FAILED_IMAGE=377193654975.dkr.ecr.eu-central-1.amazonaws.com/ai-platform-backend:${{ github.sha }}",
+              "FAILED_IMAGE=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG`",
               "PREVIOUS_IMAGE=$(cat previous_image.txt)",
-              "if [ -n \"$PREVIOUS_IMAGE\" ]; then docker stop ai-platform-backend || true; docker rm ai-platform-backend || true; docker run -d --name ai-platform-backend --env-file .env -p 80:8000 --restart unless-stopped \"$PREVIOUS_IMAGE\"; fi",
+              "if [ -n \"$PREVIOUS_IMAGE\" ]; then docker stop $CONTAINER_NAME || true; docker rm $CONTAINER_NAME || true; docker run -d --name $CONTAINER_NAME --env-file .env -p 80:8000 --restart unless-stopped \"$PREVIOUS_IMAGE\"; fi",
               "docker image rm \"$FAILED_IMAGE\" || true",
               "docker image prune -a -f --filter \"until=72h\" || true",
-              "docker logs --tail=100 ai-platform-backend || true",
+              "docker logs --tail=100 $CONTAINER_NAME || true",
               "exit 1"
             ],executionTimeout=["1800"]' \
             --query "Command.CommandId" \
