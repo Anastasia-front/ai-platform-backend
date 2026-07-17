@@ -8,7 +8,7 @@ on:
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
   ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}
-  ECR_REPOSITORY: ${{ vars.BACKEND_ECR_REPOSITORY }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
   IMAGE_TAG: ${{ github.sha }}
   CONTAINER_NAME: ai-platform-backend
   SSM_PARAMETER_PATH: ${{ vars.SSM_PARAMETER_PATH }}
