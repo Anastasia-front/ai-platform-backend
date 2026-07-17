@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Message
+from app.models import Chat, Message, Project
 
 
 class MessageRepository:
@@ -16,6 +16,16 @@ class MessageRepository:
 
         return message
 
+    async def create_committed(
+        self,
+        db: AsyncSession,
+        message: Message,
+    ):
+        db.add(message)
+        await db.commit()
+        await db.refresh(message)
+        return message
+
     async def get_by_id(
         self,
         db: AsyncSession,
@@ -24,6 +34,24 @@ class MessageRepository:
         result = await db.execute(
             select(Message).where(
                 Message.id == message_id
+            )
+        )
+
+        return result.scalar_one_or_none()
+
+    async def get_for_user(
+        self,
+        db: AsyncSession,
+        message_id: int,
+        user_id: int,
+    ):
+        result = await db.execute(
+            select(Message)
+            .join(Chat, Chat.id == Message.chat_id)
+            .join(Project, Project.id == Chat.project_id)
+            .where(
+                Message.id == message_id,
+                Project.user_id == user_id,
             )
         )
 
@@ -43,6 +71,41 @@ class MessageRepository:
         )
 
         return result.scalars().all()
+
+    async def previous_user_message(
+        self,
+        db: AsyncSession,
+        message: Message,
+    ):
+        result = await db.execute(
+            select(Message)
+            .where(
+                Message.chat_id == message.chat_id,
+                Message.role == "user",
+                Message.created_at < message.created_at,
+            )
+            .order_by(Message.created_at.desc())
+            .limit(1)
+        )
+
+        return result.scalar_one_or_none()
+
+    async def latest_user_message_for_chat(
+        self,
+        db: AsyncSession,
+        chat_id: int,
+    ):
+        result = await db.execute(
+            select(Message)
+            .where(
+                Message.chat_id == chat_id,
+                Message.role == "user",
+            )
+            .order_by(Message.created_at.desc())
+            .limit(1)
+        )
+
+        return result.scalar_one_or_none()
 
     async def delete(
         self,
