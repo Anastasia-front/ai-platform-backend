@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,11 +22,14 @@ class WorkflowRepository:
         self,
         db: AsyncSession,
         workflow_id: int,
+        include_deleted: bool = False,
     ):
+        query = select(Workflow).where(Workflow.id == workflow_id)
+        if not include_deleted:
+            query = query.where(Workflow.deleted_at.is_(None))
+
         result = await db.execute(
-            select(Workflow).where(
-                Workflow.id == workflow_id
-            )
+            query
         )
 
         return result.scalar_one_or_none()
@@ -34,8 +39,9 @@ class WorkflowRepository:
         db: AsyncSession,
         workflow_id: int,
         user_id: int,
+        include_deleted: bool = False,
     ):
-        result = await db.execute(
+        query = (
             select(Workflow)
             .join(
                 Project,
@@ -46,6 +52,12 @@ class WorkflowRepository:
                 Project.user_id == user_id,
             )
         )
+        if not include_deleted:
+            query = query.where(Workflow.deleted_at.is_(None))
+
+        result = await db.execute(
+            query
+        )
 
         return result.scalar_one_or_none()
 
@@ -53,13 +65,20 @@ class WorkflowRepository:
         self,
         db: AsyncSession,
         project_id: int,
+        include_deleted: bool = False,
     ):
-        result = await db.execute(
+        query = (
             select(Workflow)
             .where(
                 Workflow.project_id == project_id
             )
             .order_by(Workflow.id.desc())
+        )
+        if not include_deleted:
+            query = query.where(Workflow.deleted_at.is_(None))
+
+        result = await db.execute(
+            query
         )
 
         return result.scalars().all()
@@ -68,8 +87,9 @@ class WorkflowRepository:
         self,
         db: AsyncSession,
         user_id: int,
+        include_deleted: bool = False,
     ):
-        result = await db.execute(
+        query = (
             select(Workflow)
             .join(
                 Project,
@@ -80,6 +100,12 @@ class WorkflowRepository:
             )
             .order_by(Workflow.id.desc())
         )
+        if not include_deleted:
+            query = query.where(Workflow.deleted_at.is_(None))
+
+        result = await db.execute(
+            query
+        )
 
         return result.scalars().all()
 
@@ -88,6 +114,19 @@ class WorkflowRepository:
         db: AsyncSession,
         workflow: Workflow,
     ):
-        await db.delete(workflow)
+        if workflow.deleted_at is None:
+            workflow.deleted_at = datetime.now(timezone.utc)
 
         await db.flush()
+
+    async def update_name(
+        self,
+        db: AsyncSession,
+        workflow: Workflow,
+        name: str,
+    ):
+        workflow.name = name
+        await db.flush()
+        await db.refresh(workflow)
+
+        return workflow
