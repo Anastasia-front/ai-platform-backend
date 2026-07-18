@@ -22,5 +22,8 @@ class MessageResponse(BaseModel):
     content: str
     created_at: datetime
     sources: list[SourceMetadata] = []
+    provider_used: str | None = None
+    model_used: str | None = None
+    fallback_used: bool | None = None
 
     model_config = ConfigDict(from_attributes=True)
