@@ -1,12 +1,16 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.enums import WorkflowRunStatus
 
 
 class WorkflowCreate(BaseModel):
     name: str
+
+
+class WorkflowUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
 
 
 class WorkflowResponse(BaseModel):

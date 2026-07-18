@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.enums import AgentType
 
@@ -8,6 +8,10 @@ from app.enums import AgentType
 class ChatCreate(BaseModel):
     title: str
     agent_name: AgentType = AgentType.ASSISTANT
+
+
+class ChatUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
 
 
 class ChatResponse(BaseModel):

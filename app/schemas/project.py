@@ -1,12 +1,16 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ProjectCreate(BaseModel):
     name: str
     description: Optional[str] = None
+
+
+class ProjectUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
 
 
 class ProjectResponse(BaseModel):
@@ -18,17 +22,17 @@ class ProjectResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-        # You return from route/service:
-                # return project
-        # where project is a SQLAlchemy model object.
+    # You return from route/service:
+    # return project
+    # where project is a SQLAlchemy model object.
 
-        # FastAPI → Pydantic must be able to read ORM attributes:
-                # project.id
-                # project.name
+    # FastAPI → Pydantic must be able to read ORM attributes:
+    # project.id
+    # project.name
 
-        # from_attributes = True enables ORM mode in Pydantic v2.
+    # from_attributes = True enables ORM mode in Pydantic v2.
 
-        # Without this, you usually get errors like:
-                # Input must be a valid dictionary
-        # or:
-                # Unable to serialize SQLAlchemy object
+    # Without this, you usually get errors like:
+    # Input must be a valid dictionary
+    # or:
+    # Unable to serialize SQLAlchemy object
