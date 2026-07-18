@@ -17,6 +17,10 @@ class DocumentResponse(DocumentBase):
     project_id: int
     status: DocumentStatus
     embedding_status: EmbeddingStatus
+    embedding_provider: str | None = None
+    embedding_model: str | None = None
+    embedding_dimensions: int | None = None
+    embeddings_updated_at: datetime | None = None
     processing_error: str | None = None
     text: str | None = None
     created_at: datetime
