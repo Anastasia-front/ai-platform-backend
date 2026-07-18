@@ -7,11 +7,11 @@ from .auth import (
     TokenResponse,
     UserResponse,
 )
-from .chat import ChatCreate, ChatResponse
+from .chat import ChatCreate, ChatResponse, ChatUpdate
 from .document import DocumentProcessingResponse, DocumentResponse
 from .document_chunk import DocumentChunkResponse
 from .message import MessageCreate, MessageResponse
-from .project import ProjectCreate, ProjectResponse
+from .project import ProjectCreate, ProjectResponse, ProjectUpdate
 from .provider import (
     ChatProviderConfigResponse,
     ChatProviderConfigUpdate,
@@ -23,9 +23,14 @@ from .provider import (
     ProviderStatus,
 )
 from .retrieval import RetrievalRequest, RetrievalResponse, RetrievalResult
-from .workflow import WorkflowCreate, WorkflowResponse
+from .workflow import WorkflowCreate, WorkflowResponse, WorkflowUpdate
 from .workflow_event import WorkflowEventResponse
-from .workflow_run import WorkflowRunRequest, WorkflowRunResponse
+from .workflow_run import (
+    WorkflowRunBulkDeleteResponse,
+    WorkflowRunListResponse,
+    WorkflowRunRequest,
+    WorkflowRunResponse,
+)
 from .workflow_step import WorkflowStepCreate, WorkflowStepResponse
 from .workflow_step_run import WorkflowStepRunResponse
 
@@ -34,6 +39,7 @@ __all__ = [
     "AgentRunResponse",
     "ChatCreate",
     "ChatResponse",
+    "ChatUpdate",
     "DocumentChunkResponse",
     "DocumentProcessingResponse",
     "DocumentResponse",
@@ -43,6 +49,7 @@ __all__ = [
     "MessageResponse",
     "ProjectCreate",
     "ProjectResponse",
+    "ProjectUpdate",
     "ChatProviderConfigResponse",
     "ChatProviderConfigUpdate",
     "EmbeddingProviderConfigResponse",
@@ -61,8 +68,11 @@ __all__ = [
     "WorkflowCreate",
     "WorkflowEventResponse",
     "WorkflowResponse",
+    "WorkflowUpdate",
     "WorkflowRunRequest",
     "WorkflowRunResponse",
+    "WorkflowRunListResponse",
+    "WorkflowRunBulkDeleteResponse",
     "WorkflowStepCreate",
     "WorkflowStepResponse",
     "WorkflowStepRunResponse",
