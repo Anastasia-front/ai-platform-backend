@@ -18,3 +18,15 @@ class WorkflowRunResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class WorkflowRunListResponse(BaseModel):
+    items: list[WorkflowRunResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class WorkflowRunBulkDeleteResponse(BaseModel):
+    deleted: int
