@@ -16,6 +16,6 @@ resource "aws_instance" "api" {
   user_data = file(var.user_data)
 
   tags = {
-    Name = "${var.project_name}-api"
+    Name = "${var.project_name}-backend"
   }
 }

@@ -15,6 +15,11 @@ variable "ssh_allowed_cidrs" {
   type        = list(string)
 }
 
+variable "http_allowed_cidrs" {
+  description = "CIDR ranges allowed to access the backend over HTTP."
+  type        = list(string)
+}
+
 variable "ec2_ami" {
   type = string
 }

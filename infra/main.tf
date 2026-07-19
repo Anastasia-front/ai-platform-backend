@@ -1,8 +1,9 @@
 module "network" {
   source = "./modules/network"
 
-  project_name      = var.project_name
-  ssh_allowed_cidrs = var.ssh_allowed_cidrs
+  project_name       = var.project_name
+  ssh_allowed_cidrs  = var.ssh_allowed_cidrs
+  http_allowed_cidrs = var.http_allowed_cidrs
 }
 
 
