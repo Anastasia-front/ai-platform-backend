@@ -15,3 +15,4 @@ class AgentType(str, Enum):
     CODING = "coding"
     PROJECT = "project"
     RESEARCH = "research"
+    WORKSPACE = "workspace"
