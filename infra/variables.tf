@@ -15,13 +15,37 @@ variable "ssh_allowed_cidrs" {
   type        = list(string)
 }
 
-variable "http_allowed_cidrs" {
-  description = "CIDR ranges allowed to access the backend over HTTP."
+variable "frontend_security_group_id" {
+  description = "Frontend EC2 Security Group ID allowed to reach the backend over private VPC networking."
+  type        = string
+}
+
+variable "backend_public_http_allowed_cidrs" {
+  description = "CIDR ranges allowed to reach the backend public HTTP endpoint."
   type        = list(string)
+  default     = []
 }
 
 variable "ec2_ami" {
   type = string
+}
+
+variable "backend_enable_private_dns" {
+  description = "Create a Route 53 private DNS record for the backend FastAPI EC2 instance."
+  type        = bool
+  default     = false
+}
+
+variable "backend_private_dns_zone_name" {
+  description = "Route 53 private hosted zone name for backend internal DNS."
+  type        = string
+  default     = "ai-platform.internal"
+}
+
+variable "backend_private_dns_record_name" {
+  description = "Route 53 private DNS record name for the backend FastAPI service."
+  type        = string
+  default     = "backend"
 }
 
 variable "ollama_instance_type" {

@@ -2,6 +2,26 @@ output "ec2_ip" {
   value = module.ec2.public_ip
 }
 
+output "backend_elastic_ip" {
+  value = module.ec2.elastic_ip
+}
+
+output "backend_elastic_ip_allocation_id" {
+  value = module.ec2.elastic_ip_allocation_id
+}
+
+output "backend_private_ip" {
+  value = module.ec2.private_ip
+}
+
+output "backend_private_dns_name" {
+  value = try(aws_route53_record.backend[0].fqdn, null)
+}
+
+output "backend_private_base_url" {
+  value = var.backend_enable_private_dns ? "http://${trimsuffix(aws_route53_record.backend[0].fqdn, ".")}" : "http://${module.ec2.private_ip}"
+}
+
 output "rds_endpoint" {
   value = module.rds.endpoint
 }

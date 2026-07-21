@@ -1,9 +1,10 @@
 module "network" {
   source = "./modules/network"
 
-  project_name       = var.project_name
-  ssh_allowed_cidrs  = var.ssh_allowed_cidrs
-  http_allowed_cidrs = var.http_allowed_cidrs
+  project_name               = var.project_name
+  ssh_allowed_cidrs          = var.ssh_allowed_cidrs
+  frontend_security_group_id = var.frontend_security_group_id
+  public_http_allowed_cidrs  = var.backend_public_http_allowed_cidrs
 }
 
 
@@ -32,6 +33,26 @@ module "ec2" {
   security_group   = module.network.ec2_security_group
   instance_profile = module.iam.instance_profile
   user_data        = "${path.module}/userdata.sh"
+}
+
+resource "aws_route53_zone" "backend_internal" {
+  count = var.backend_enable_private_dns ? 1 : 0
+
+  name = var.backend_private_dns_zone_name
+
+  vpc {
+    vpc_id = module.network.vpc_id
+  }
+}
+
+resource "aws_route53_record" "backend" {
+  count = var.backend_enable_private_dns ? 1 : 0
+
+  zone_id = aws_route53_zone.backend_internal[0].zone_id
+  name    = var.backend_private_dns_record_name
+  type    = "A"
+  ttl     = 60
+  records = [module.ec2.private_ip]
 }
 
 module "ollama" {
