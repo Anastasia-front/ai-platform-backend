@@ -7,9 +7,9 @@ variable "aws_region" {
 }
 
 variable "instance_type" {
-#  description = "EC2 GPU instance type used by Ollama."
-  type        = string
-#  default     = "g5.xlarge"
+  #  description = "EC2 GPU instance type used by Ollama."
+  type = string
+  #  default     = "g5.xlarge"
 }
 
 variable "key_name" {
@@ -41,7 +41,7 @@ variable "associate_public_ip_address" {
 variable "root_volume_size" {
   description = "Root EBS volume size in GiB."
   type        = number
-#  default     = 80
+  #  default     = 80
 }
 
 variable "data_volume_size" {
@@ -53,7 +53,7 @@ variable "data_volume_size" {
 variable "models" {
   description = "Ollama models to pre-pull during bootstrap."
   type        = list(string)
-#  default     = ["llama3.1:8b", "nomic-embed-text"]
+  #  default     = ["llama3.1:8b", "nomic-embed-text"]
 }
 
 variable "enable_private_dns" {
