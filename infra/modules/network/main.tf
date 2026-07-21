@@ -21,20 +21,36 @@ resource "aws_security_group" "ec2" {
     cidr_blocks = var.ssh_allowed_cidrs
   }
 
-  ingress {
-    from_port = 80
-    to_port   = 80
-    protocol  = "tcp"
-
-    cidr_blocks = var.http_allowed_cidrs
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "backend_http_from_frontend" {
+  security_group_id            = aws_security_group.ec2.id
+  referenced_security_group_id = var.frontend_security_group_id
+
+  ip_protocol = "tcp"
+  from_port   = 80
+  to_port     = 80
+
+  description = "Allow frontend EC2 to reach backend over private VPC"
+}
+
+resource "aws_vpc_security_group_ingress_rule" "backend_http_public" {
+  for_each = toset(var.public_http_allowed_cidrs)
+
+  security_group_id = aws_security_group.ec2.id
+  cidr_ipv4         = each.value
+
+  ip_protocol = "tcp"
+  from_port   = 80
+  to_port     = 80
+
+  description = "Allow public HTTP access to backend docs endpoint"
 }
 
 resource "aws_security_group" "rds" {
