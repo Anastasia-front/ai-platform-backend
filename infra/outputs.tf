@@ -42,6 +42,14 @@ output "ollama_private_ip" {
   value = module.ollama.private_ip
 }
 
+output "ollama_elastic_ip" {
+  value = module.ollama.elastic_ip
+}
+
+output "ollama_elastic_ip_allocation_id" {
+  value = module.ollama.elastic_ip_allocation_id
+}
+
 output "ollama_private_dns_name" {
   value = module.ollama.private_dns_name
 }

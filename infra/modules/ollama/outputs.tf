@@ -2,6 +2,14 @@ output "private_ip" {
   value = aws_instance.ollama.private_ip
 }
 
+output "elastic_ip" {
+  value = aws_eip.ollama.public_ip
+}
+
+output "elastic_ip_allocation_id" {
+  value = aws_eip.ollama.id
+}
+
 output "private_dns_name" {
   value = try(aws_route53_record.ollama[0].fqdn, null)
 }

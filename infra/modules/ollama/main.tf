@@ -119,6 +119,19 @@ resource "aws_instance" "ollama" {
   }
 }
 
+resource "aws_eip" "ollama" {
+  domain = "vpc"
+
+  tags = {
+    Name = "${var.project_name}-ollama-eip"
+  }
+}
+
+resource "aws_eip_association" "ollama" {
+  instance_id   = aws_instance.ollama.id
+  allocation_id = aws_eip.ollama.id
+}
+
 resource "aws_route53_zone" "internal" {
   count = var.enable_private_dns ? 1 : 0
 
