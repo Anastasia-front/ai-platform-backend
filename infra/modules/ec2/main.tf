@@ -19,3 +19,16 @@ resource "aws_instance" "api" {
     Name = "${var.project_name}-backend"
   }
 }
+
+resource "aws_eip" "api" {
+  domain = "vpc"
+
+  tags = {
+    Name = "${var.project_name}-backend-eip"
+  }
+}
+
+resource "aws_eip_association" "api" {
+  instance_id   = aws_instance.api.id
+  allocation_id = aws_eip.api.id
+}
