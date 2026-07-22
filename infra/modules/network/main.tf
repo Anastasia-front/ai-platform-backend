@@ -53,6 +53,17 @@ resource "aws_vpc_security_group_ingress_rule" "backend_http_public" {
   description = "Allow public HTTP access to backend docs endpoint"
 }
 
+resource "aws_vpc_security_group_ingress_rule" "backend_https_public" {
+  security_group_id = aws_security_group.ec2.id
+  cidr_ipv4         = "0.0.0.0/0"
+
+  ip_protocol = "tcp"
+  from_port   = 443
+  to_port     = 443
+
+  description = "Allow public HTTPS traffic for API documentation"
+}
+
 resource "aws_security_group" "rds" {
   name   = "${var.project_name}-rds-sg"
   vpc_id = data.aws_vpc.default.id
