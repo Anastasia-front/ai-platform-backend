@@ -1,13 +1,16 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from app.api.router import router
 from app.core import AsyncSessionLocal
+from app.services import ApplicationError
 from app.services.provider_config import provider_config
 from app.services.workflow.recovery import (
     recover_running_workflows,
 )
+from app.web.docs_landing import router as docs_landing_router
 
 
 @asynccontextmanager
@@ -19,6 +22,22 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="AI Automation Platform", lifespan=lifespan)
+app = FastAPI(
+    title="AI Automation Platform",
+    description="Developer documentation and service resources",
+    lifespan=lifespan,
+    docs_url="/swagger",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+)
 
+
+@app.exception_handler(ApplicationError)
+async def application_error_handler(_request: Request, exc: ApplicationError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": str(exc)},
+    )
+
+app.include_router(docs_landing_router)
 app.include_router(router)
