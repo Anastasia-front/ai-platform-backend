@@ -17,7 +17,8 @@ resource "aws_ssm_parameter" "nginx_origin_certificate" {
 }
 
 resource "aws_ssm_parameter" "nginx_origin_private_key" {
-  name  = "/${var.project_name}/nginx/origin_private_key"
-  type  = "SecureString"
-  value = var.nginx_origin_private_key
+  name             = "/${var.project_name}/nginx/origin_private_key"
+  type             = "SecureString"
+  value_wo         = var.nginx_origin_private_key
+  value_wo_version = var.nginx_origin_private_key_version
 }

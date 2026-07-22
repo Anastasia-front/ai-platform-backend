@@ -45,6 +45,7 @@ nginx_origin_private_key = <<EOT
 replace-with-cloudflare-origin-private-key
 -----END PRIVATE KEY-----
 EOT
+nginx_origin_private_key_version = 1
 
 env_values = {
   JWT_SECRET                   = "replace-with-jwt-secret"

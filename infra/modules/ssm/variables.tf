@@ -16,3 +16,7 @@ variable "nginx_origin_private_key" {
   type      = string
   sensitive = true
 }
+
+variable "nginx_origin_private_key_version" {
+  type = number
+}
