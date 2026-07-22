@@ -5,6 +5,7 @@ from .chunk import ChunkService
 from .document import DocumentService
 from .embedding import EmbeddingService
 from .embedding_management import EmbeddingManagementService
+from .exceptions import ApplicationError, InvalidProviderConfigurationError
 from .extractors import (
     DEFAULT_EXTRACTORS,
     DocxExtractor,
@@ -28,6 +29,8 @@ __all__ = [
     "DocxExtractor",
     "EmbeddingManagementService",
     "EmbeddingService",
+    "ApplicationError",
+    "InvalidProviderConfigurationError",
     "PdfExtractor",
     "ProviderConfigService",
     "RAGService",
