@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 resource "aws_iam_role" "ec2_role" {
   name = "${var.project_name}-ec2-role"
 
@@ -39,7 +41,7 @@ resource "aws_iam_policy" "ssm_parameter_read" {
           "ssm:GetParametersByPath"
         ]
         Resource = [
-          "arn:aws:ssm:${var.aws_region}:*:parameter/${var.project_name}/*"
+          "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${var.project_name}/*"
         ]
       }
     ]
