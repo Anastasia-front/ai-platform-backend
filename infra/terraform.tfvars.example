@@ -1,0 +1,78 @@
+aws_region   = "eu-central-1"
+project_name = "ai-platform"
+
+ec2_ami = "ami-xxxxxxxxxxxxxxxxx"
+
+ssh_allowed_cidrs = [
+  "203.0.113.10/32",
+]
+
+frontend_security_group_id = "sg-xxxxxxxxxxxxxxxxx"
+
+backend_public_http_allowed_cidrs = [
+  "0.0.0.0/0",
+]
+
+key_name = "ai-platform-key"
+
+db_username = "postgres"
+db_password = "replace-with-database-password"
+
+google_client_id = "your-google-client-id"
+
+backend_enable_private_dns      = true
+backend_private_dns_zone_name   = "ai-platform.internal"
+backend_private_dns_record_name = "backend"
+
+ollama_instance_type               = "t3.small"
+ollama_associate_public_ip_address = true
+ollama_root_volume_size            = 16
+ollama_data_volume_size            = 10
+ollama_models = [
+  "nomic-embed-text",
+  "tinyllama",
+]
+ollama_enable_private_dns = true
+
+nginx_origin_certificate = <<EOT
+-----BEGIN CERTIFICATE-----
+replace-with-cloudflare-origin-certificate
+-----END CERTIFICATE-----
+EOT
+
+nginx_origin_private_key = <<EOT
+-----BEGIN PRIVATE KEY-----
+replace-with-cloudflare-origin-private-key
+-----END PRIVATE KEY-----
+EOT
+
+env_values = {
+  JWT_SECRET                   = "replace-with-jwt-secret"
+  ALGORITHM                    = "HS256"
+  ACCESS_TOKEN_EXPIRE_MINUTES  = "60"
+  REFRESH_TOKEN_EXPIRE_MINUTES = "43200"
+
+  PROVIDER_CONFIG_ENCRYPTION_KEY = "replace-with-fernet-key"
+
+  CHAT_PROVIDER            = "gemini"
+  EMBEDDING_PROVIDER       = "gemini"
+  CHAT_PROVIDER_CHAIN      = "gemini,groq,openrouter,ollama"
+  EMBEDDING_PROVIDER_CHAIN = "openrouter,gemini,ollama"
+
+  PROVIDER_MAX_RETRIES              = "2"
+  PROVIDER_RETRY_BASE_DELAY_SECONDS = "1"
+  PROVIDER_REQUEST_TIMEOUT_SECONDS  = "60"
+  PROVIDER_FAILURE_THRESHOLD        = "3"
+  PROVIDER_COOLDOWN_SECONDS         = "60"
+
+  CHAT_BASE_URL      = "http://ollama.ai-platform.internal:11434"
+  EMBEDDING_BASE_URL = "http://ollama.ai-platform.internal:11434"
+  CHAT_API_KEY       = ""
+  EMBEDDING_API_KEY  = ""
+
+  CHAT_MODEL      = "llama3.1:8b"
+  EMBEDDING_MODEL = "nomic-embed-text"
+  EMBEDDING_DIM   = "768"
+
+  STORAGE_PROVIDER = "s3"
+}

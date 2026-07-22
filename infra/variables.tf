@@ -103,3 +103,15 @@ variable "env_values" {
 
   sensitive = true
 }
+
+variable "nginx_origin_certificate" {
+  type        = string
+  description = "Cloudflare Origin Certificate for the backend docs Nginx origin, supplied through Terraform variables or updated directly in SSM."
+  sensitive   = true
+}
+
+variable "nginx_origin_private_key" {
+  type        = string
+  description = "Cloudflare Origin private key for the backend docs Nginx origin, supplied through Terraform variables or updated directly in SSM."
+  sensitive   = true
+}

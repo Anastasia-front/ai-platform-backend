@@ -92,7 +92,9 @@ module "ecr" {
 module "ssm" {
   source = "./modules/ssm"
 
-  project_name = var.project_name
+  project_name             = var.project_name
+  nginx_origin_certificate = var.nginx_origin_certificate
+  nginx_origin_private_key = var.nginx_origin_private_key
 
   env_values = merge(
     var.env_values,
