@@ -110,6 +110,12 @@ variable "nginx_origin_certificate" {
   sensitive   = true
 }
 
+variable "nginx_origin_certificate_version" {
+  type        = number
+  description = "Increment when rotating nginx_origin_certificate because value_wo is write-only."
+  default     = 1
+}
+
 variable "nginx_origin_private_key" {
   type        = string
   description = "Cloudflare Origin private key for the backend docs Nginx origin, supplied through Terraform variables or updated directly in SSM."

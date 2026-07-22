@@ -12,6 +12,10 @@ variable "nginx_origin_certificate" {
   sensitive = true
 }
 
+variable "nginx_origin_certificate_version" {
+  type = number
+}
+
 variable "nginx_origin_private_key" {
   type      = string
   sensitive = true

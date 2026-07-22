@@ -11,9 +11,10 @@ resource "aws_ssm_parameter" "env_vars" {
 }
 
 resource "aws_ssm_parameter" "nginx_origin_certificate" {
-  name  = "/${var.project_name}/nginx/origin_certificate"
-  type  = "SecureString"
-  value = var.nginx_origin_certificate
+  name             = "/${var.project_name}/nginx/origin_certificate"
+  type             = "SecureString"
+  value_wo         = var.nginx_origin_certificate
+  value_wo_version = var.nginx_origin_certificate_version
 }
 
 resource "aws_ssm_parameter" "nginx_origin_private_key" {

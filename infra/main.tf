@@ -94,6 +94,7 @@ module "ssm" {
 
   project_name                     = var.project_name
   nginx_origin_certificate         = var.nginx_origin_certificate
+  nginx_origin_certificate_version = var.nginx_origin_certificate_version
   nginx_origin_private_key         = var.nginx_origin_private_key
   nginx_origin_private_key_version = var.nginx_origin_private_key_version
 

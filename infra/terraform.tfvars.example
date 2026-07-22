@@ -39,6 +39,7 @@ nginx_origin_certificate = <<EOT
 replace-with-cloudflare-origin-certificate
 -----END CERTIFICATE-----
 EOT
+nginx_origin_certificate_version = 1
 
 nginx_origin_private_key = <<EOT
 -----BEGIN PRIVATE KEY-----
