@@ -5,6 +5,10 @@ yum install -y docker
 service docker start
 usermod -a -G docker ec2-user
 
+yum install -y nginx
+systemctl enable nginx
+systemctl start nginx
+
 # login to ECR (region auto)
 aws ecr get-login-password --region eu-central-1 \
 | docker login --username AWS --password-stdin <ACCOUNT_ID>.dkr.ecr.eu-central-1.amazonaws.com
@@ -24,7 +28,7 @@ docker run -d \
 docker pull <ACCOUNT_ID>.dkr.ecr.eu-central-1.amazonaws.com/ai-platform-backend:latest
 
 docker run -d \
-  -p 8000:8000 \
+  -p 127.0.0.1:8000:8000 \
   --name backend \
   --network ai-platform \
   --restart unless-stopped \
