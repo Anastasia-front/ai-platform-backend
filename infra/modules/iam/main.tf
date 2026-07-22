@@ -21,13 +21,34 @@ resource "aws_iam_role_policy_attachment" "ecr" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
-resource "aws_iam_role_policy_attachment" "ssm" {
-  role       = aws_iam_role.ec2_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess"
-}
-
 resource "aws_iam_instance_profile" "profile" {
   role = aws_iam_role.ec2_role.name
+}
+
+resource "aws_iam_policy" "ssm_parameter_read" {
+  name = "${var.project_name}-ssm-parameter-read"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath"
+        ]
+        Resource = [
+          "arn:aws:ssm:${var.aws_region}:*:parameter/${var.project_name}/*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ssm_parameter_read" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = aws_iam_policy.ssm_parameter_read.arn
 }
 
 resource "aws_iam_policy" "s3_uploads_access" {
