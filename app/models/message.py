@@ -41,6 +41,10 @@ class Message(TimestampMixin, Base):
         default=list,
     )
 
+    provider_used: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    model_used: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    fallback_used: Mapped[bool | None] = mapped_column(nullable=True)
+
     chat = relationship(
         "Chat",
         back_populates="messages",
