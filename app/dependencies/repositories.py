@@ -6,6 +6,7 @@ from app.repositories import (
     MessageRepository,
     ProjectRepository,
     RetrievalRepository,
+    UserRepository,
     WorkflowEventRepository,
     WorkflowRepository,
     WorkflowRunRepository,
@@ -59,4 +60,8 @@ def get_document_chunk_repository():
 
 
 def get_retrieval_repository():
-    return RetrievalRepository
+    return RetrievalRepository()
+
+
+def get_user_repository():
+    return UserRepository()

@@ -1,15 +1,17 @@
 from fastapi import Depends, HTTPException
 from jose import JWTError
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import decode_access_token, get_db, oauth2_scheme
+from app.dependencies.repositories import get_user_repository
 from app.models import User
+from app.repositories import UserRepository
 
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
+    users: UserRepository = Depends(get_user_repository),
 ) -> User:
 
     try:
@@ -24,8 +26,7 @@ async def get_current_user(
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    result = await db.execute(select(User).where(User.id == int(user_id)))
-    user = result.scalar_one_or_none()
+    user = await users.get_by_id(db, int(user_id))
 
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
