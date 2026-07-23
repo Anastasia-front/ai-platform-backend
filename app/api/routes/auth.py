@@ -1,5 +1,5 @@
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,8 +13,7 @@ from app.schemas import (
     TokenResponse,
     UserResponse,
 )
-from app.services import AuthService, AuthTokenError
-from app.services.auth import GoogleAuthError
+from app.services import AuthService
 
 router = APIRouter()
 
@@ -47,12 +46,7 @@ async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
-    user = await AuthService.authenticate_user(db, form_data.username, form_data.password)
-
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    return AuthService.token_response_for_user(user)
+    return await AuthService.login(db, form_data.username, form_data.password)
 
 # -------------------------------------------------
 # GOOGLE AUTH
@@ -62,15 +56,7 @@ async def google_login(
     payload: GoogleLoginRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    try:
-        user = await AuthService.get_or_create_google_user(db, payload.credential)
-    except GoogleAuthError as exc:
-        raise HTTPException(
-            status_code=401,
-            detail=str(exc),
-        ) from exc
-
-    return AuthService.token_response_for_user(user)
+    return await AuthService.google_login(db, payload.credential)
 
 # -------------------------------------------------
 # REFRESH TOKEN
@@ -80,10 +66,7 @@ async def refresh_token(
     payload: RefreshTokenRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    try:
-        return await AuthService.refresh_token(db, payload.refresh_token)
-    except AuthTokenError as exc:
-        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    return await AuthService.refresh_token(db, payload.refresh_token)
 
 # -------------------------------------------------
 # GET CURRENT USER

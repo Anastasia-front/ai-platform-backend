@@ -8,10 +8,12 @@ from app.dependencies import (
     get_owned_workflow,
     get_owned_workflow_step,
     get_workflow_step_repository,
+    get_workflow_step_update_service,
 )
 from app.models import Workflow, WorkflowStep
 from app.repositories import WorkflowStepRepository
 from app.schemas import WorkflowStepCreate, WorkflowStepResponse
+from app.services import WorkflowStepUpdateService
 
 router = APIRouter()
 
@@ -27,25 +29,13 @@ async def create_workflow_step(
     payload: WorkflowStepCreate,
     db: AsyncSession = Depends(get_db),
     workflow: Workflow= Depends(get_owned_workflow),
-    steps: WorkflowStepRepository = Depends(
-        get_workflow_step_repository
-    ),
+    service: WorkflowStepUpdateService = Depends(get_workflow_step_update_service),
 ):
-
-    step = WorkflowStep(
-        workflow_id=workflow.id,
-        step_order=payload.step_order,
-        name=payload.name,
-        prompt_template=payload.prompt_template,
-        depends_on=payload.depends_on,
-        condition=payload.condition,
+    return await service.create(
+        db=db,
+        payload=payload,
+        workflow=workflow,
     )
-
-    await steps.create(db, step)
-    await db.commit()
-    await db.refresh(step)
-
-    return step
 
 # -------------------------------------------------
 #  GET SINGLE WORKFLOW STEP
@@ -88,9 +78,6 @@ async def list_for_workflow(
 async def delete_step(
     db: AsyncSession = Depends(get_db),
     step: WorkflowStep = Depends(get_owned_workflow_step),
-    steps: WorkflowStepRepository = Depends(
-        get_workflow_step_repository
-    ),
+    service: WorkflowStepUpdateService = Depends(get_workflow_step_update_service),
 ):
-    await steps.delete(db, step)
-    await db.commit()
+    await service.delete(db, step)

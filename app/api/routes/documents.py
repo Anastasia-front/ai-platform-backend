@@ -1,12 +1,14 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import get_db
 from app.dependencies import (
+    get_background_job_service,
     get_document_chunk_repository,
     get_document_repository,
+    get_document_service,
     get_owned_document,
     get_owned_project,
 )
@@ -17,7 +19,7 @@ from app.schemas import (
     DocumentProcessingResponse,
     DocumentResponse,
 )
-from app.services import DocumentService
+from app.services import BackgroundJobService, DocumentService
 
 router = APIRouter()
 
@@ -49,9 +51,8 @@ async def upload_document(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     project: Project = Depends(get_owned_project),
+    service: DocumentService = Depends(get_document_service),
 ):
-    service = DocumentService()
-
     return await service.upload(
         db,
         project,
@@ -65,43 +66,60 @@ async def upload_document(
 @router.post(
     "/documents/{document_id}/process",
     response_model=DocumentProcessingResponse,
+    status_code=status.HTTP_202_ACCEPTED,
 )
 async def process_document(
     db: AsyncSession = Depends(get_db),
     document: Document = Depends(get_owned_document),
-    documents: DocumentRepository = Depends(get_document_repository),
-    chunks: DocumentChunkRepository = Depends(get_document_chunk_repository),
+    service: DocumentService = Depends(get_document_service),
+    jobs: BackgroundJobService = Depends(get_background_job_service),
 ):
-    service = DocumentService(documents=documents)
+    return await service.enqueue_processing_response(db, document, jobs)
 
-    try:
-        document = await service.process(
-            db,
-            document,
-        )
+# -------------------------------------------------
+# CANCEL PROCESS DOCUMENT
+# -------------------------------------------------
+@router.post(
+    "/documents/{document_id}/process/cancel",
+    response_model=DocumentProcessingResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def cancel_document_processing(
+    db: AsyncSession = Depends(get_db),
+    document: Document = Depends(get_owned_document),
+    service: DocumentService = Depends(get_document_service),
+    jobs: BackgroundJobService = Depends(get_background_job_service),
+):
+    return await service.cancel_processing(db, document, jobs)
 
-        chunk_count = await chunks.count_for_document(db, document.id)
+# -------------------------------------------------
+# RETRY PROCESS DOCUMENT
+# -------------------------------------------------
+@router.post(
+    "/documents/{document_id}/process/retry",
+    response_model=DocumentProcessingResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def retry_document_processing(
+    db: AsyncSession = Depends(get_db),
+    document: Document = Depends(get_owned_document),
+    service: DocumentService = Depends(get_document_service),
+    jobs: BackgroundJobService = Depends(get_background_job_service),
+):
+    return await service.retry_processing(db, document, jobs)
 
-        return DocumentProcessingResponse(
-            id=document.id,
-            status=document.status,
-            processing_started_at=document.processing_started_at,
-            processing_finished_at=document.processing_finished_at,
-            processing_duration_ms=document.processing_duration_ms,
-            embedding_status=document.embedding_status,
-            chunk_count=chunk_count,
-        )
 
-    except FileNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        ) from exc
+# -------------------------------------------------
+# GET SINGLE DOCUMENT
+# -------------------------------------------------
+@router.get(
+    "/documents/{document_id}",
+    response_model=DocumentResponse,
+)
+async def get_document(
+    document: Document = Depends(get_owned_document),
+):
+    return document
 
 
 # -------------------------------------------------
@@ -132,10 +150,6 @@ async def get_document_chunks(
 async def delete_document(
     db: AsyncSession = Depends(get_db),
     document: Document = Depends(get_owned_document),
-    documents: DocumentRepository = Depends(get_document_repository),
+    service: DocumentService = Depends(get_document_service),
 ):
-    await documents.delete(
-        db,
-        document,
-    )
-    await db.commit()
+    await service.delete(db, document)

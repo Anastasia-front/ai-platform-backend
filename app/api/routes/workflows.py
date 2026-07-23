@@ -1,17 +1,18 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import StreamingResponse
 
 from app.core import get_db
 from app.dependencies import (
+    get_background_job_service,
     get_owned_project,
     get_owned_workflow,
     get_workflow_repository,
     get_workflow_service,
+    get_workflow_update_service,
 )
-from app.enums import WorkflowRunStatus
 from app.models import Project, Workflow
 from app.repositories import WorkflowRepository
 from app.schemas import (
@@ -19,8 +20,9 @@ from app.schemas import (
     WorkflowResponse,
     WorkflowRunRequest,
     WorkflowRunResponse,
+    WorkflowUpdate,
 )
-from app.services import WorkflowService
+from app.services import BackgroundJobService, WorkflowService, WorkflowUpdateService
 
 router = APIRouter()
 
@@ -37,19 +39,9 @@ async def create_workflow(
     payload: WorkflowCreate,
     db: AsyncSession = Depends(get_db),
     project: Project = Depends(get_owned_project),
-    workflows: WorkflowRepository = Depends(get_workflow_repository),
+    service: WorkflowUpdateService = Depends(get_workflow_update_service),
 ):
-    workflow = Workflow(
-        project_id=project.id,
-        name=payload.name,
-        status=WorkflowRunStatus.RUNNING,
-    )
-
-    await workflows.create(db, workflow)
-    await db.commit()
-    await db.refresh(workflow)
-
-    return workflow
+    return await service.create(db=db, payload=payload, project=project)
 
 
 # -------------------------------------------------
@@ -63,6 +55,26 @@ async def get_workflow(
     workflow: Workflow = Depends(get_owned_workflow),
 ):
     return workflow
+
+
+# -------------------------------------------------
+# UPDATE WORKFLOW
+# -------------------------------------------------
+@router.patch(
+    "/workflows/{workflow_id}",
+    response_model=WorkflowResponse,
+)
+async def update_workflow(
+    payload: WorkflowUpdate,
+    db: AsyncSession = Depends(get_db),
+    workflow: Workflow = Depends(get_owned_workflow),
+    service: WorkflowUpdateService = Depends(get_workflow_update_service),
+):
+    return await service.update(
+        db=db,
+        workflow=workflow,
+        payload=payload,
+    )
 
 
 # -------------------------------------------------
@@ -93,10 +105,9 @@ async def get_workflows(
 async def delete_workflow(
     db: AsyncSession = Depends(get_db),
     workflow: Workflow = Depends(get_owned_workflow),
-    workflows: WorkflowRepository = Depends(get_workflow_repository),
+    service: WorkflowUpdateService = Depends(get_workflow_update_service),
 ):
-    await workflows.delete(db, workflow)
-    await db.commit()
+    await service.delete(db, workflow)
 
 
 # -------------------------------------------------
@@ -105,6 +116,7 @@ async def delete_workflow(
 @router.post(
     "/workflows/{workflow_id}/run",
     response_model=WorkflowRunResponse,
+    status_code=status.HTTP_202_ACCEPTED,
 )
 async def run_workflow(
     payload: WorkflowRunRequest,
@@ -113,18 +125,14 @@ async def run_workflow(
         get_workflow_service,
     ),
     workflow: Workflow = Depends(get_owned_workflow),
+    jobs: BackgroundJobService = Depends(get_background_job_service),
 ):
-    try:
-        workflow_run = await service.run_workflow(
-            db=db,
-            workflow_id=workflow.id,
-            user_input=payload.input,
-        )
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        ) from exc
+    workflow_run = await service.enqueue_run(
+        db=db,
+        workflow_id=workflow.id,
+        user_input=payload.input,
+        jobs=jobs,
+    )
 
     return service.run_response(workflow_run)
 
@@ -134,20 +142,22 @@ async def run_workflow(
 # -------------------------------------------------
 @router.post("/workflows/{workflow_id}/runs/stream")
 async def run_workflow_stream(
+    request: Request,
     payload: WorkflowRunRequest,
     db: AsyncSession = Depends(get_db),
     workflow: Workflow = Depends(get_owned_workflow),
     service: WorkflowService = Depends(get_workflow_service),
 ):
-    async def event_generator():
-        async for event in service.run_workflow_stream(
+    return StreamingResponse(
+        service.run_workflow_stream_until_disconnected(
             db=db,
             workflow_id=workflow.id,
             user_input=payload.input,
-        ):
-            yield event
-
-    return StreamingResponse(
-        event_generator(),
+            is_disconnected=request.is_disconnected,
+        ),
         media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
     )

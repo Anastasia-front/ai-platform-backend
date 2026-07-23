@@ -8,6 +8,7 @@ from app.dependencies import (
     get_current_user,
     get_owned_project,
     get_project_repository,
+    get_project_update_service,
     get_retrieval_service,
 )
 from app.models import Project, User
@@ -15,10 +16,11 @@ from app.repositories import ProjectRepository
 from app.schemas import (
     ProjectCreate,
     ProjectResponse,
+    ProjectUpdate,
     RetrievalRequest,
     RetrievalResponse,
 )
-from app.services import RetrievalService
+from app.services import ProjectUpdateService, RetrievalService
 
 router = APIRouter()
 
@@ -34,24 +36,13 @@ async def create_project(
     payload: ProjectCreate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-    projects: ProjectRepository = Depends(
-        get_project_repository
-    ),
+    service: ProjectUpdateService = Depends(get_project_update_service),
 ):
-    project = Project(
-        name=payload.name,
-        description=payload.description,
-    )
-
-    await projects.create(
+    return await service.create(
         db=db,
-        project=project,
-        user_id=user.id
+        payload=payload,
+        user_id=user.id,
     )
-    await db.commit()
-    await db.refresh(project)
-
-    return project
 
 # -------------------------------------------------
 #  GET SINGLE PROJECT
@@ -61,6 +52,23 @@ async def get_project(
     project: Project = Depends(get_owned_project),
 ):
     return project
+
+
+# -------------------------------------------------
+# UPDATE PROJECT
+# -------------------------------------------------
+@router.patch("/{project_id}", response_model=ProjectResponse)
+async def update_project(
+    payload: ProjectUpdate,
+    db: AsyncSession = Depends(get_db),
+    project: Project = Depends(get_owned_project),
+    service: ProjectUpdateService = Depends(get_project_update_service),
+):
+    return await service.update(
+        db=db,
+        project=project,
+        payload=payload,
+    )
 
 # -------------------------------------------------
 #  GET PROJECTS
@@ -110,12 +118,6 @@ async def retrieve(
 async def delete_project(
     db: AsyncSession = Depends(get_db),
     project: Project = Depends(get_owned_project),
-    projects: ProjectRepository = Depends(
-        get_project_repository
-    ),
+    service: ProjectUpdateService = Depends(get_project_update_service),
 ):
-    await projects.delete(
-    db,
-    project,
-)
-    await db.commit()
+    await service.delete(db, project)

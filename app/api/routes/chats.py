@@ -6,13 +6,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import get_db
 from app.dependencies import (
     get_chat_repository,
+    get_chat_update_service,
     get_current_user,
     get_owned_chat,
     get_owned_project,
 )
 from app.models import Chat, Project, User
 from app.repositories import ChatRepository
-from app.schemas import ChatCreate, ChatResponse
+from app.schemas import ChatCreate, ChatResponse, ChatUpdate
+from app.services import ChatUpdateService
 
 router = APIRouter()
 
@@ -28,24 +30,13 @@ async def create_chat(
     payload: ChatCreate,
     db: AsyncSession = Depends(get_db),
     project: Project = Depends(get_owned_project),
-    chats: ChatRepository = Depends(
-        get_chat_repository
-    ),
+    service: ChatUpdateService = Depends(get_chat_update_service),
 ):
-    chat = Chat(
-        project_id=project.id,
-        title=payload.title,
-        agent_name=payload.agent_name,
+    return await service.create(
+        db=db,
+        payload=payload,
+        project=project,
     )
-
-    await chats.create(
-        db,
-        chat
-    )
-    await db.commit()
-    await db.refresh(chat)
-
-    return chat
 
 # -------------------------------------------------
 # GET SINGLE CHAT
@@ -58,6 +49,26 @@ async def get_chat(
     chat: Chat = Depends(get_owned_chat),
 ):
     return chat
+
+
+# -------------------------------------------------
+# UPDATE CHAT
+# -------------------------------------------------
+@router.patch(
+    "/chats/{chat_id}",
+    response_model=ChatResponse,
+)
+async def update_chat(
+    payload: ChatUpdate,
+    db: AsyncSession = Depends(get_db),
+    chat: Chat = Depends(get_owned_chat),
+    service: ChatUpdateService = Depends(get_chat_update_service),
+):
+    return await service.update(
+        db=db,
+        chat=chat,
+        payload=payload,
+    )
 
 # -------------------------------------------------
 # GET PROJECT CHATS
@@ -90,12 +101,6 @@ async def get_project_chats(
 async def delete_chat(
     db: AsyncSession = Depends(get_db),
     chat: Chat = Depends(get_owned_chat),
-    chats: ChatRepository = Depends(
-        get_chat_repository
-    ),
+    service: ChatUpdateService = Depends(get_chat_update_service),
 ):
-    await chats.delete(
-        db,
-        chat,
-    )
-    await db.commit()
+    await service.delete(db, chat)

@@ -3,17 +3,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import get_db
 from app.dependencies import (
-    get_agent_run_repository,
+    get_agent_run_update_service,
     get_owned_agent_run,
     get_owned_workflow,
 )
-from app.enums import AgentRunStatus
 from app.models import AgentRun, Workflow
-from app.repositories import AgentRunRepository
 from app.schemas import (
     AgentRunCreate,
     AgentRunResponse,
 )
+from app.services import AgentRunUpdateService
 
 router = APIRouter()
 
@@ -43,17 +42,6 @@ async def run_agent(
     payload: AgentRunCreate,
     db: AsyncSession = Depends(get_db),
     workflow: Workflow = Depends(get_owned_workflow),
-    agent_runs: AgentRunRepository = Depends(get_agent_run_repository),
+    service: AgentRunUpdateService = Depends(get_agent_run_update_service),
 ):
-    agent_run = AgentRun(
-        workflow_id=workflow.id,
-        goal=payload.goal,
-        status=AgentRunStatus.COMPLETED,
-        result=f"Agent completed goal: {payload.goal}",
-    )
-
-    await agent_runs.create(db, agent_run)
-    await db.commit()
-    await db.refresh(agent_run)
-
-    return agent_run
+    return await service.create(db=db, payload=payload, workflow=workflow)
