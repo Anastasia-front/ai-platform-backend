@@ -58,6 +58,10 @@ class Document(TimestampMixin, Base):
         default=EmbeddingStatus.PENDING,
         nullable=False,
     )
+    embedding_provider: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    embedding_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    embedding_dimensions: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    embeddings_updated_at = mapped_column(DateTime(timezone=True), nullable=True)
 
     project = relationship(
         "Project",
