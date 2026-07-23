@@ -1406,3 +1406,44 @@ On failure:
 status = failed
 error = actual error
 ```
+
+## HTTPS / custom domain name deploy flow:
+
+```
+Cloudflare DNS / Namecheap / Gandi / Porkbun
+        ↓
+DNS
+        ↓
+Elastic IP
+        ↓
+Ubuntu Frontend EC2 (Django + Nginx)
+        │
+        ├── backend.ai-platform.internal (FastAPI)
+        │
+        └── ollama.ai-platform.internal (Ollama)
+        ↓
+Nginx
+        ↓
+Gunicorn
+        ↓
+Django
+```
+
+Then run:
+
+```
+sudo apt update
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d ai-automation-platform.dev -d www.ai-automation-platform.dev
+```
+
+Then configure:
+
+```
+Registrar: Cloudflare Registrar
+DNS: Cloudflare
+Server: EC2
+Elastic IP: Yes
+Web server: Nginx
+HTTPS: Let's Encrypt
+```
