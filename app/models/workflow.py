@@ -1,4 +1,6 @@
-from sqlalchemy import ForeignKey, Integer, String
+from datetime import datetime
+
+from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -23,6 +25,12 @@ class Workflow(TimestampMixin, Base):
         String,
         default=WorkflowRunStatus.PENDING,
         nullable=False,
+    )
+
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
     )
 
     # relations (optional but important for future expansion)
