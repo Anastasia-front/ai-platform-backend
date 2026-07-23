@@ -1,3 +1,10 @@
+import re
+
+CHAT_KIND = "chat"
+EMBEDDING_KIND = "embedding"
+
+TRANSIENT_EMBEDDING_STATUS_CODES = {429, 500, 502, 503, 504}
+
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
 
 ALLOWED_EXTENSIONS = {
@@ -35,3 +42,73 @@ PASSWORD_RULE_MESSAGE = (
     "Password must be at least 6 characters and include an uppercase letter, "
     "a number, and a special character."
 )
+
+DOCUMENT_REFERENCE_TERMS = (
+    "uploaded",
+    "document",
+    "documents",
+    "file",
+    "files",
+    "project",
+    "contract",
+    "contracts",
+    "cv",
+    "cvs",
+    "candidate",
+    "candidates",
+    "job",
+    "job description",
+    "resume",
+    "resumes",
+    "invoice",
+    "invoices",
+    "gmail_thread",
+    "requirements",
+)
+
+DOCUMENT_LIST_TERMS = (
+    "list",
+    "show",
+    "available",
+    "what files",
+    "which files",
+    "document names",
+    "file names",
+    "filenames",
+)
+
+DELEGATION_FAILURE_PHRASES = (
+    "you need to",
+    "you'll need to",
+    "you must",
+    "please provide",
+    "please paste",
+    "please describe",
+    "provide me with",
+    "tell me about",
+    "send me",
+    "step 1: you",
+    "once you provide",
+)
+
+SENSITIVE_FIELD_RE = re.compile(
+    r"(api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|authorization|"
+    r"client[_-]?secret|secret|password|passwd|pwd|credential|private[_-]?key)",
+    flags=re.IGNORECASE,
+)
+SECRET_ASSIGNMENT_RE = re.compile(
+    r"(?P<prefix>\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|"
+    r"authorization|client[_-]?secret|secret|password|passwd|pwd|credential|"
+    r"private[_-]?key)\b\s*[:=]\s*)(?P<quote>['\"]?)(?P<value>[^'\"\s,&}]+)",
+    flags=re.IGNORECASE,
+)
+ENV_SECRET_ASSIGNMENT_RE = re.compile(
+    r"(?P<prefix>\b[A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD|PASSWD|PWD|"
+    r"CREDENTIAL|PRIVATE_KEY)\b\s*[:=]\s*)(?P<quote>['\"]?)(?P<value>[^'\"\s,&}]+)"
+)
+QUERY_SECRET_RE = re.compile(
+    r"(?P<prefix>[?&](?:key|api_key|api-key|token|access_token|auth|signature|"
+    r"client_secret)=)(?P<value>[^&\s'\"}]+)",
+    flags=re.IGNORECASE,
+)
+GOOGLE_API_KEY_RE = re.compile(r"\bAIza[0-9A-Za-z_-]{20,}\b")
