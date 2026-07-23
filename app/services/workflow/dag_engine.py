@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.enums import WorkflowRunStatus
 from app.models import WorkflowRun, WorkflowStep
 from app.repositories import (
+    WorkflowRunRepository,
     WorkflowStepRepository,
     WorkflowStepRunRepository,
 )
@@ -15,10 +16,11 @@ from app.services.workflow.event_bus import EventBus
 
 class DAGEngine:
 
-    def __init__(self):
+    def __init__(self, events: EventBus | None = None):
         self.executor = AIExecutor()
-        self.events = EventBus()
+        self.events = events or EventBus()
 
+        self.runs = WorkflowRunRepository()
         self.steps = WorkflowStepRepository()
         self.step_runs = WorkflowStepRunRepository()
 
@@ -207,9 +209,7 @@ class DAGEngine:
         )
 
         if not steps:
-            workflow_run.status = WorkflowRunStatus.COMPLETED
-            workflow_run.output = ""
-            await db.flush()
+            await self.runs.complete_empty(db, workflow_run)
             return ""
 
         self.validate_dependencies(steps)
@@ -292,7 +292,7 @@ class DAGEngine:
                 )
 
             if not ready_steps:
-                await db.flush()
+                await self.step_runs.flush(db)
                 continue
 
             # remove from pending
@@ -317,7 +317,7 @@ class DAGEngine:
                     },
                 )
 
-            await db.flush()
+            await self.step_runs.flush(db)
 
             # -----------------------------------------
             # execute AI tasks in parallel
@@ -396,7 +396,7 @@ class DAGEngine:
                     retry_count=result["retry_count"],
                     error_message=result["error_message"],
                 )
-            await db.flush()
+            await self.step_runs.flush(db)
 
             # -----------------------------------------
             # process results
@@ -453,15 +453,13 @@ class DAGEngine:
 
                     if not continue_on_error:
 
-                        workflow_run.status = WorkflowRunStatus.FAILED
-
-                        await db.commit()
+                        await self.runs.fail_committed(db, workflow_run)
 
                         raise Exception(
                             f"Step failed: {result['step_id']}"
                         )
 
-            await db.flush()
+            await self.step_runs.flush(db)
 
         # =====================================================
         # FINAL OUTPUT

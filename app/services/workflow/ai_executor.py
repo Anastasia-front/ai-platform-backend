@@ -3,7 +3,7 @@ import time
 from typing import Any
 
 from app.models import WorkflowStep
-from app.services import AIService
+from app.services.ai import AIService
 
 
 class AIExecutor:

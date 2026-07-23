@@ -1,39 +1,56 @@
+import logging
+from datetime import datetime, timedelta, timezone
 
-import asyncio
-
-from fastapi import Depends
+from fastapi import HTTPException
 
 from app.core import AsyncSessionLocal
-from app.dependencies import get_workflow_service
+from app.enums import WorkflowRunStatus
 from app.repositories import WorkflowRunRepository
+from app.services.background_jobs import BackgroundJobService
 
-from .workflow import WorkflowService
+logger = logging.getLogger(__name__)
+
+# How long a run may sit in PENDING/RUNNING with no status update before it
+# is considered abandoned (worker crashed/restarted) rather than still being
+# actively worked on by a live Celery worker.
+STALE_AFTER = timedelta(minutes=10)
 
 
-async def recover_running_workflows():
+async def recover_running_workflows(
+    jobs: BackgroundJobService | None = None,
+) -> None:
+    """Run once at API startup. Re-enqueues only runs that are actually
+    stale (no progress for STALE_AFTER) -- a run that is genuinely still
+    being processed by a live worker is left alone, since blindly
+    re-enqueuing every PENDING/RUNNING record would double-execute work
+    that Celery is already doing.
+
+    This replaces the previous fire-and-forget `asyncio.create_task`
+    in-process recovery, which was not durable and did not survive an API
+    process restart itself.
+    """
+    from app.tasks.workflows import resume_workflow_task, run_workflow_task
+
+    jobs = jobs or BackgroundJobService()
+    cutoff = datetime.now(timezone.utc) - STALE_AFTER
 
     async with AsyncSessionLocal() as db:
-
         runs_repo = WorkflowRunRepository()
+        stale_runs = await runs_repo.get_stale(db, older_than=cutoff)
 
-        runs = await runs_repo.get_running(db)
-
-    for run in runs:
-        asyncio.create_task(
-            resume_single_workflow(run.id)
-        )
-
-
-# bootstrap recovery
-# create its own DB session
-# call service
-async def resume_single_workflow(run_id: int,
-    service: WorkflowService = Depends(
-    get_workflow_service
-)):
-
-    async with AsyncSessionLocal() as db:
-        await service.resume_workflow(
-            db=db,
-            run_id=run_id,
-        )
+    for run in stale_runs:
+        try:
+            if run.status == WorkflowRunStatus.PENDING:
+                # Never actually started -- safe to hand back to the queue,
+                # the task's own claim guard prevents double execution.
+                jobs.enqueue(run_workflow_task, run.id)
+            elif run.status == WorkflowRunStatus.RUNNING:
+                # Started but the worker died before completing. Re-enqueue
+                # as a resume so the DAG engine can pick up completed steps.
+                jobs.enqueue(resume_workflow_task, run.id)
+        except HTTPException as exc:
+            logger.warning(
+                "Skipping workflow recovery enqueue for run %s: %s",
+                run.id,
+                exc.detail,
+            )
