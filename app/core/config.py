@@ -28,9 +28,17 @@ class Settings(BaseSettings):
 
     CHAT_MODEL: str = "gemma2:2b"
     CHAT_FALLBACK_MODEL: str = "llama3.2:3b"
+    CHAT_PROVIDER_CHAIN: str = "gemini,groq,openrouter,ollama"
 
     EMBEDDING_MODEL: str = "nomic-embed-text"
     EMBEDDING_DIM: int = 768
+    EMBEDDING_PROVIDER_CHAIN: str = "openrouter,gemini,ollama"
+
+    PROVIDER_MAX_RETRIES: int = 2
+    PROVIDER_RETRY_BASE_DELAY_SECONDS: float = 1
+    PROVIDER_REQUEST_TIMEOUT_SECONDS: float = 60
+    PROVIDER_FAILURE_THRESHOLD: int = 3
+    PROVIDER_COOLDOWN_SECONDS: int = 60
 
     STORAGE_PROVIDER: str
     AWS_S3_BUCKET: str = "ai-platform-uploads"
