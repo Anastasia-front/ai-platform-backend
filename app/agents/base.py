@@ -7,6 +7,7 @@ class BaseAgent:
 
     agentic: bool = False
     uses_rag: bool = False
+    workspace: bool = False
 
     system_prompt = (
         "You are a helpful AI assistant."

@@ -6,9 +6,9 @@ class CodingAgent(BaseAgent):
 
     name: AgentType = AgentType.CODING
     agentic = True
+    workspace = True
 
     system_prompt = (
-        "You are a senior software engineer. "
-        "Reason through implementation constraints internally, use project "
-        "documents when available, and give clean, production-ready code."
+        "You are the legacy Coding Agent. Behave as Workspace Agent for "
+        "backward compatibility with existing chats."
     )

@@ -5,6 +5,7 @@ from app.enums.agent import AgentType
 class ProjectAgent(BaseAgent):
 
     name: AgentType = AgentType.PROJECT
+    agentic = True
     uses_rag = True
 
     system_prompt = (
