@@ -1,8 +1,15 @@
 import asyncio
 
 import httpx
+from fastapi import HTTPException, status
 
+from app.core import TRANSIENT_EMBEDDING_STATUS_CODES, settings
 from app.enums import EmbeddingProvider
+from app.services.ai.failover import (
+    ProviderAttempt,
+    embedding_breaker,
+    run_with_failover,
+)
 from app.services.provider_config import provider_config
 
 
@@ -22,6 +29,7 @@ class EmbeddingService:
         if dimensions <= 0:
             raise ValueError("dimensions must be greater than 0")
 
+        self.fixed_provider = provider
         self.provider = (provider or config.provider).lower()
         self.model_name = model_name or config.model
         self._dimensions = dimensions
@@ -42,26 +50,34 @@ class EmbeddingService:
         if not text.strip():
             return [0.0] * self.dimensions
 
-        if self.provider == EmbeddingProvider.OLLAMA:
-            return await self._embed_ollama(text)
+        if self.fixed_provider is None:
+            return await self._embed_text_with_failover(text)
 
-        if self.provider == EmbeddingProvider.OPENROUTER:
-            return await self._embed_openrouter(text)
+        try:
+            if self.provider == EmbeddingProvider.OLLAMA:
+                return await self._embed_ollama(text)
 
-        if self.provider == EmbeddingProvider.GEMINI:
-            return await self._embed_gemini(text)
+            if self.provider == EmbeddingProvider.OPENROUTER:
+                return await self._embed_openrouter(text)
 
-        if self.provider == EmbeddingProvider.GROQ:
-            raise ValueError(
-                "GroqAIProvider is supported for chat, but embeddings are not implemented for Groq."
-            )
+            if self.provider == EmbeddingProvider.GEMINI:
+                return await self._embed_gemini(text)
 
-        raise ValueError(f"Unsupported embedding provider: {self.provider}")
+            raise ValueError(f"Unsupported embedding provider: {self.provider}")
+        except HTTPException:
+            raise
+        except httpx.HTTPStatusError as exc:
+            raise self._provider_unavailable(exc) from exc
+        except httpx.HTTPError as exc:
+            raise self._provider_unavailable(exc) from exc
 
     async def embed_texts(
         self,
         texts: list[str],
     ) -> list[list[float]]:
+        if self.fixed_provider is None:
+            return await self._embed_texts_with_failover(texts)
+
         vectors = []
 
         for text in texts:
@@ -72,11 +88,92 @@ class EmbeddingService:
 
         return vectors
 
+    async def _embed_text_with_failover(self, text: str) -> list[float]:
+        result = await run_with_failover(
+            await self._embedding_attempts(
+                lambda service: service._embed_text_fixed(text)
+            ),
+            breaker=embedding_breaker,
+            operation="embedding",
+        )
+        self.provider = result.provider
+        self.model_name = result.model
+        return result.value
+
+    async def _embed_texts_with_failover(self, texts: list[str]) -> list[list[float]]:
+        result = await run_with_failover(
+            await self._embedding_attempts(
+                lambda service: service._embed_texts_fixed(texts)
+            ),
+            breaker=embedding_breaker,
+            operation="embedding_batch",
+        )
+        self.provider = result.provider
+        self.model_name = result.model
+        return result.value
+
+    async def _embedding_attempts(self, call_factory) -> list[ProviderAttempt]:
+        attempts = []
+        for config in provider_config.embedding_chain():
+            if not config.model:
+                continue
+            if config.provider != EmbeddingProvider.OLLAMA and not config.api_key:
+                continue
+            if (
+                config.provider == EmbeddingProvider.OLLAMA
+                and not await self._ollama_available(config)
+            ):
+                continue
+            service = EmbeddingService(
+                provider=config.provider,
+                model_name=config.model,
+                dimensions=config.dimensions,
+                base_url=config.base_url,
+                api_key=config.api_key,
+            )
+            attempts.append(
+                ProviderAttempt(
+                    provider=config.provider.value,
+                    model=config.model,
+                    call=lambda service=service: call_factory(service),
+                )
+            )
+        return attempts
+
+    async def _embed_text_fixed(self, text: str) -> list[float]:
+        if self.provider == EmbeddingProvider.OLLAMA:
+            return await self._embed_ollama(text)
+        if self.provider == EmbeddingProvider.OPENROUTER:
+            return await self._embed_openrouter(text)
+        if self.provider == EmbeddingProvider.GEMINI:
+            return await self._embed_gemini(text)
+        raise ValueError(f"Unsupported embedding provider: {self.provider}")
+
+    async def _embed_texts_fixed(self, texts: list[str]) -> list[list[float]]:
+        vectors = []
+        for text in texts:
+            vectors.append(await self._embed_text_fixed(text))
+            await asyncio.sleep(0.2)
+        return vectors
+
+    async def _ollama_available(self, config) -> bool:
+        if not config.base_url:
+            return False
+        try:
+            async with httpx.AsyncClient(timeout=3) as client:
+                response = await client.get(f"{config.base_url.rstrip('/')}/api/tags")
+                response.raise_for_status()
+                return True
+        except httpx.HTTPError:
+            return False
+
     async def _embed_ollama(
         self,
         text: str,
     ) -> list[float]:
-        async with httpx.AsyncClient(timeout=120) as client:
+        async with httpx.AsyncClient(
+            timeout=settings.PROVIDER_REQUEST_TIMEOUT_SECONDS
+        ) as client:
             response = await client.post(
                 f"{self.base_url}/api/embeddings",
                 json={
@@ -94,7 +191,9 @@ class EmbeddingService:
         self,
         text: str,
     ) -> list[float]:
-        async with httpx.AsyncClient(timeout=120) as client:
+        async with httpx.AsyncClient(
+            timeout=settings.PROVIDER_REQUEST_TIMEOUT_SECONDS
+        ) as client:
             response = await client.post(
                 f"{self.base_url}/embeddings",
                 headers={
@@ -121,7 +220,9 @@ class EmbeddingService:
 
         for attempt in range(3):
             try:
-                async with httpx.AsyncClient(timeout=120) as client:
+                async with httpx.AsyncClient(
+                    timeout=settings.PROVIDER_REQUEST_TIMEOUT_SECONDS
+                ) as client:
                     response = await client.post(
                         f"{self.base_url}/models/{self.model_name}:embedContent",
                         params={
@@ -147,7 +248,7 @@ class EmbeddingService:
             except httpx.HTTPStatusError as exc:
                 last_error = exc
 
-                if exc.response.status_code in {429, 500, 502, 503, 504}:
+                if exc.response.status_code in TRANSIENT_EMBEDDING_STATUS_CODES:
                     await asyncio.sleep(2**attempt)
                     continue
 
@@ -159,3 +260,25 @@ class EmbeddingService:
                 continue
 
         raise last_error
+
+    def _provider_unavailable(self, exc: httpx.HTTPError) -> HTTPException:
+        provider = (
+            self.provider.value if hasattr(self.provider, "value") else self.provider
+        )
+
+        if isinstance(exc, httpx.HTTPStatusError):
+            detail = (
+                f"{provider} embedding provider returned "
+                f"{exc.response.status_code} {exc.response.reason_phrase}. "
+                "Check the embedding provider API key, model, and API access."
+            )
+        else:
+            detail = (
+                f"{provider} embedding provider could not be reached. "
+                "Check the embedding provider base URL and network access."
+            )
+
+        return HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=detail,
+        )

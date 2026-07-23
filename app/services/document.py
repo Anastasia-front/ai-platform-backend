@@ -12,12 +12,15 @@ from app.core import (
     ALLOWED_EXTENSIONS,
     MAX_UPLOAD_SIZE,
 )
-from app.enums import DocumentStatus, EmbeddingStatus
-from app.models import ChunkEmbedding, Document, DocumentChunk, Project
+from app.enums import DocumentStatus
+from app.models import Document, DocumentChunk, Project
 from app.repositories import (
+    ChunkEmbeddingRepository,
     DocumentChunkRepository,
     DocumentRepository,
 )
+from app.schemas import DocumentProcessingResponse
+from app.services.background_jobs import BackgroundJobService
 from app.services.chunk import ChunkService
 from app.services.embedding import EmbeddingService
 from app.services.storage import LocalStorageService, StorageService
@@ -31,6 +34,7 @@ class DocumentService:
         storage: StorageService | None = None,
         documents: DocumentRepository | None = None,
         chunks: DocumentChunkRepository | None = None,
+        chunk_embeddings: ChunkEmbeddingRepository | None = None,
         chunker: ChunkService | None = None,
         embeddings: EmbeddingService | None = None,
         extractors: tuple[TextExtractor, ...] = DEFAULT_EXTRACTORS,
@@ -39,6 +43,7 @@ class DocumentService:
 
         self.documents = documents or DocumentRepository()
         self.chunks = chunks or DocumentChunkRepository()
+        self.chunk_embeddings = chunk_embeddings or ChunkEmbeddingRepository()
         self.chunker = chunker or ChunkService()
         self.embeddings = embeddings or EmbeddingService()
 
@@ -96,15 +101,7 @@ class DocumentService:
             status=DocumentStatus.UPLOADED,
         )
 
-        document = await self.documents.create(
-            db,
-            document,
-        )
-
-        await db.commit()
-        await db.refresh(document)
-
-        return document
+        return await self.documents.save_uploaded(db, document)
 
     async def process(
         self,
@@ -114,13 +111,8 @@ class DocumentService:
         overlap: int = 200,
     ) -> Document:
 
-        document.status = DocumentStatus.PROCESSING
-        document.processing_started_at = datetime.now(timezone.utc)
-        document.embedding_status = EmbeddingStatus.PROCESSING
-
-        await db.flush()
-
-        started = document.processing_started_at
+        started = datetime.now(timezone.utc)
+        await self.documents.start_processing(db, document, started)
 
         try:
             text = await self.extract_text(document)
@@ -132,55 +124,46 @@ class DocumentService:
                 overlap=overlap,
             )
 
+            await self.chunks.delete_for_document(db, document.id)
+
             await self.chunks.create_many(
                 db,
                 chunk_objects,
             )
 
-            await db.flush()
-
             vectors = await self.embeddings.embed_texts(
                 [chunk.text for chunk in chunk_objects]
             )
 
-            db.add_all(
-                [
-                    ChunkEmbedding(
-                    chunk_id=chunk.id,
-                    provider=self.embeddings.provider,
-                    model_name=self.embeddings.model_name,
-                    dimensions=self.embeddings.dimensions,
-                    embedding=vector,
-                    )
-                    for chunk, vector in zip(chunk_objects, vectors)
-                ]
+            await self.chunk_embeddings.create_for_chunks(
+                db=db,
+                chunks=chunk_objects,
+                vectors=vectors,
+                provider=self.embeddings.provider,
+                model_name=self.embeddings.model_name,
+                dimensions=self.embeddings.dimensions,
             )
 
-            await db.flush()
-
             finished = datetime.now(timezone.utc)
-
-            document.text = text
-            document.status = DocumentStatus.INDEXED
-            document.embedding_status = EmbeddingStatus.COMPLETED
-            document.processing_finished_at = finished
-            document.processing_duration_ms = int(
+            duration_ms = int(
                 (finished - started).total_seconds() * 1000
             )
 
-            await db.commit()
-            await db.refresh(document)
+            return await self.documents.complete_processing(
+                db=db,
+                document=document,
+                text=text,
+                finished_at=finished,
+                duration_ms=duration_ms,
+                embedding_provider=self.embeddings.provider,
+                embedding_model=self.embeddings.model_name,
+                embedding_dimensions=self.embeddings.dimensions,
+            )
 
-            return document
+        except Exception as exc:
+            await self.documents.rollback(db)
 
-        except Exception:
-            await db.rollback()
-
-            document.status = DocumentStatus.FAILED
-            document.embedding_status = EmbeddingStatus.FAILED
-
-            await db.commit()
-            await db.refresh(document)
+            await self.documents.fail_processing(db, document, str(exc))
 
             raise
 
@@ -199,6 +182,98 @@ class DocumentService:
 
         raise ValueError(
             f"Unsupported document type: {document.filename}"
+        )
+
+    async def enqueue_processing(
+        self,
+        db: AsyncSession,
+        document: Document,
+        jobs: BackgroundJobService,
+    ) -> Document:
+        from app.tasks.documents import process_document_task
+
+        if document.status in (
+            DocumentStatus.QUEUED,
+            DocumentStatus.PROCESSING,
+            DocumentStatus.CANCELLING,
+        ):
+            return document
+
+        await self.documents.queue_processing(db, document)
+
+        try:
+            task = jobs.enqueue(process_document_task, document.id)
+        except HTTPException:
+            await self.documents.restore_uploaded(db, document)
+            raise
+
+        return await self.documents.set_task_id(db, document, task.id)
+
+    async def enqueue_processing_response(
+        self,
+        db: AsyncSession,
+        document: Document,
+        jobs: BackgroundJobService,
+    ) -> DocumentProcessingResponse:
+        document = await self.enqueue_processing(db, document, jobs)
+        return await self.processing_response(db, document)
+
+    async def cancel_processing(
+        self,
+        db: AsyncSession,
+        document: Document,
+        jobs: BackgroundJobService,
+    ) -> DocumentProcessingResponse:
+        if document.status in (
+            DocumentStatus.QUEUED,
+            DocumentStatus.PROCESSING,
+            DocumentStatus.CANCELLING,
+        ):
+            document.status = DocumentStatus.CANCELLING
+            await db.commit()
+            await db.refresh(document)
+
+            if document.celery_task_id:
+                jobs.revoke(document.celery_task_id, terminate=True)
+
+            document = await self.documents.cancel_processing(db, document)
+
+        return await self.processing_response(db, document)
+
+    async def retry_processing(
+        self,
+        db: AsyncSession,
+        document: Document,
+        jobs: BackgroundJobService,
+    ) -> DocumentProcessingResponse:
+        document.status = DocumentStatus.UPLOADED
+        await db.commit()
+        await db.refresh(document)
+
+        document = await self.enqueue_processing(db, document, jobs)
+        return await self.processing_response(db, document)
+
+    async def delete(self, db: AsyncSession, document: Document) -> None:
+        await self.documents.delete(db, document)
+        await db.commit()
+
+    async def processing_response(
+        self,
+        db: AsyncSession,
+        document: Document,
+    ) -> DocumentProcessingResponse:
+        chunk_count = await self.chunks.count_for_document(db, document.id)
+
+        return DocumentProcessingResponse(
+            id=document.id,
+            status=document.status,
+            celery_task_id=document.celery_task_id,
+            processing_started_at=document.processing_started_at,
+            processing_finished_at=document.processing_finished_at,
+            processing_duration_ms=document.processing_duration_ms,
+            processing_error=document.processing_error,
+            embedding_status=document.embedding_status,
+            chunk_count=chunk_count,
         )
 
     def chunk_document(

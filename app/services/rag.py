@@ -31,19 +31,13 @@ class RAGService:
         top_k: int = 5,
     ) -> tuple[str, list[dict]]:
 
-        retrieved = await self.retrieval.retrieve(
+        filtered_results = await self.search_project_documents(
             db=db,
             project_id=project_id,
             user_id=user_id,
-            query=question,
+            queries=[question],
             top_k=top_k,
         )
-
-        filtered_results = [
-            r
-            for r in retrieved.results
-            if r.score <= SIMILARITY_THRESHOLD
-        ]
 
         context = self.prompts.build_context(filtered_results)
 
@@ -57,11 +51,44 @@ class RAGService:
             system_prompt=rag_system_prompt,
         )
 
-        sources = self._build_sources(filtered_results)
+        sources = self.build_sources(filtered_results)
 
         return answer, sources
 
-    def _build_sources(
+    async def search_project_documents(
+        self,
+        db: AsyncSession,
+        *,
+        project_id: int,
+        user_id: int,
+        queries: list[str],
+        top_k: int = 5,
+    ) -> list:
+        filtered_results = []
+        seen_chunks = set()
+
+        for query in queries:
+            retrieved = await self.retrieval.retrieve(
+                db=db,
+                project_id=project_id,
+                user_id=user_id,
+                query=query,
+                top_k=top_k,
+            )
+
+            for result in retrieved.results:
+                if result.score > SIMILARITY_THRESHOLD:
+                    continue
+
+                if result.chunk_id in seen_chunks:
+                    continue
+
+                seen_chunks.add(result.chunk_id)
+                filtered_results.append(result)
+
+        return filtered_results
+
+    def build_sources(
         self,
         chunks,
     ) -> list[dict]:

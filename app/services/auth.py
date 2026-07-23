@@ -2,7 +2,6 @@ from uuid import uuid4
 
 import httpx
 from jose import JWTError
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import (
@@ -14,14 +13,16 @@ from app.core import (
     verify_password,
 )
 from app.models import User
+from app.repositories import UserRepository
 from app.schemas import TokenResponse
+from app.services.exceptions import AuthenticationFailedError
 
 
-class GoogleAuthError(Exception):
+class GoogleAuthError(AuthenticationFailedError):
     pass
 
 
-class AuthTokenError(Exception):
+class AuthTokenError(AuthenticationFailedError):
     pass
 
 
@@ -37,15 +38,21 @@ class AuthService:
         )
 
     @staticmethod
-    async def get_user_by_email(db: AsyncSession, email: str):
-        result = await db.execute(select(User).where(User.email == email))
-        return result.scalar_one_or_none()
+    async def get_user_by_email(
+        db: AsyncSession,
+        email: str,
+        user_repo: UserRepository | None = None,
+    ):
+        user_repo = user_repo or UserRepository()
+        return await user_repo.get_by_email(db, email)
 
     @staticmethod
     async def get_user_by_refresh_token(
         db: AsyncSession,
         refresh_token: str,
+        user_repo: UserRepository | None = None,
     ) -> User:
+        user_repo = user_repo or UserRepository()
         try:
             payload = decode_access_token(refresh_token)
             if payload.get("typ") != "refresh":
@@ -54,8 +61,7 @@ class AuthService:
         except (JWTError, TypeError, ValueError) as exc:
             raise AuthTokenError("Invalid refresh token") from exc
 
-        result = await db.execute(select(User).where(User.id == user_id))
-        user = result.scalar_one_or_none()
+        user = await user_repo.get_by_id(db, user_id)
 
         if not user:
             raise AuthTokenError("User not found")
@@ -71,16 +77,19 @@ class AuthService:
         return AuthService.token_response_for_user(user)
 
     @staticmethod
-    async def create_user(db: AsyncSession, email: str, password: str):
+    async def create_user(
+        db: AsyncSession,
+        email: str,
+        password: str,
+        user_repo: UserRepository | None = None,
+    ):
+        user_repo = user_repo or UserRepository()
         user = User(
             email=email,
             hashed_password=hash_password(password),
         )
 
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-        return user
+        return await user_repo.create(db, user)
 
     @staticmethod
     async def get_or_create_google_user(db: AsyncSession, credential: str):
@@ -137,3 +146,18 @@ class AuthService:
             return None
 
         return user
+
+    @staticmethod
+    async def login(db: AsyncSession, email: str, password: str) -> TokenResponse:
+        user = await AuthService.authenticate_user(db, email, password)
+        if not user:
+            raise AuthenticationFailedError("Invalid credentials")
+        return AuthService.token_response_for_user(user)
+
+    @staticmethod
+    async def google_login(db: AsyncSession, credential: str) -> TokenResponse:
+        try:
+            user = await AuthService.get_or_create_google_user(db, credential)
+        except GoogleAuthError as exc:
+            raise AuthenticationFailedError(str(exc)) from exc
+        return AuthService.token_response_for_user(user)

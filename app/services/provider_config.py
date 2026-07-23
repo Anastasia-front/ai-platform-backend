@@ -1,23 +1,23 @@
 from dataclasses import dataclass
+from time import perf_counter
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import decrypt_secret, encrypt_secret, settings
+from app.core import CHAT_KIND, EMBEDDING_KIND, decrypt_secret, encrypt_secret, settings
 from app.enums import ChatProvider, EmbeddingProvider
 from app.models import ProviderConfig
+from app.repositories import ProviderConfigRepository
 from app.schemas import (
     ChatProviderConfigResponse,
     ChatProviderConfigUpdate,
     EmbeddingProviderConfigResponse,
     EmbeddingProviderConfigUpdate,
     ProviderConfigResponse,
+    ProviderHealthResponse,
     ProvidersResponse,
     ProviderStatus,
 )
-
-CHAT_KIND = "chat"
-EMBEDDING_KIND = "embedding"
+from app.services.exceptions import InvalidProviderConfigurationError
 
 
 @dataclass
@@ -41,7 +41,11 @@ class EmbeddingProviderConfigState:
 
 
 class ProviderConfigService:
-    def __init__(self):
+    def __init__(
+        self,
+        provider_configs: ProviderConfigRepository | None = None,
+    ):
+        self.provider_configs = provider_configs or ProviderConfigRepository()
         self.chat_configs = {
             provider: ChatProviderConfigState(
                 provider=provider,
@@ -89,9 +93,30 @@ class ProviderConfigService:
             config for config in self.embedding_configs.values() if config.active
         )
 
+    def chat_chain(
+        self,
+        fixed_provider: ChatProvider | None = None,
+    ) -> list[ChatProviderConfigState]:
+        if fixed_provider:
+            return [self.chat_configs[fixed_provider]]
+
+        providers = self._parse_chain(settings.CHAT_PROVIDER_CHAIN, ChatProvider)
+        return [self.chat_configs[provider] for provider in providers]
+
+    def embedding_chain(
+        self,
+        fixed_provider: EmbeddingProvider | None = None,
+    ) -> list[EmbeddingProviderConfigState]:
+        if fixed_provider:
+            return [self.embedding_configs[fixed_provider]]
+
+        providers = self._parse_chain(
+            settings.EMBEDDING_PROVIDER_CHAIN, EmbeddingProvider
+        )
+        return [self.embedding_configs[provider] for provider in providers]
+
     async def load_from_db(self, db: AsyncSession) -> None:
-        result = await db.execute(select(ProviderConfig))
-        rows = result.scalars().all()
+        rows = await self.provider_configs.list_all(db)
 
         for row in rows:
             if row.kind == CHAT_KIND:
@@ -120,16 +145,73 @@ class ProviderConfigService:
 
         for config in self.chat_configs.values():
             if not await self._get_row(db, CHAT_KIND, config.provider.value):
-                db.add(self._chat_row(config))
+                await self.provider_configs.add(db, self._chat_row(config))
                 changed = True
 
         for config in self.embedding_configs.values():
             if not await self._get_row(db, EMBEDDING_KIND, config.provider.value):
-                db.add(self._embedding_row(config))
+                await self.provider_configs.add(db, self._embedding_row(config))
                 changed = True
 
         if changed:
-            await db.commit()
+            await self.provider_configs.commit(db)
+
+    async def sync_settings_to_db(self, db: AsyncSession) -> None:
+        await self._sync_chat_settings(db)
+        await self._sync_embedding_settings(db)
+        await self.provider_configs.commit(db)
+
+    async def _sync_chat_settings(self, db: AsyncSession) -> None:
+        provider = settings.CHAT_PROVIDER
+        config = self.chat_configs[provider]
+        config.model = settings.CHAT_MODEL or config.model
+        config.fallback_model = settings.CHAT_FALLBACK_MODEL or None
+        config.base_url = self._settings_chat_base_url(provider)
+        if settings.CHAT_API_KEY:
+            config.api_key = settings.CHAT_API_KEY
+
+        for item in self.chat_configs.values():
+            item.active = item.provider == provider
+
+        for item in self.chat_configs.values():
+            row = await self._get_row(db, CHAT_KIND, item.provider.value)
+            if not row:
+                await self.provider_configs.add(db, self._chat_row(item))
+                continue
+
+            row.active = item.active
+            if item.provider == provider:
+                row.model = item.model
+                row.fallback_model = item.fallback_model
+                row.base_url = item.base_url
+                row.encrypted_api_key = encrypt_secret(item.api_key)
+                row.dimensions = None
+
+    async def _sync_embedding_settings(self, db: AsyncSession) -> None:
+        provider = settings.EMBEDDING_PROVIDER
+        config = self.embedding_configs[provider]
+        config.model = settings.EMBEDDING_MODEL or config.model
+        config.dimensions = settings.EMBEDDING_DIM
+        config.base_url = self._settings_embedding_base_url(provider)
+        if settings.EMBEDDING_API_KEY:
+            config.api_key = settings.EMBEDDING_API_KEY
+
+        for item in self.embedding_configs.values():
+            item.active = item.provider == provider
+
+        for item in self.embedding_configs.values():
+            row = await self._get_row(db, EMBEDDING_KIND, item.provider.value)
+            if not row:
+                await self.provider_configs.add(db, self._embedding_row(item))
+                continue
+
+            row.active = item.active
+            if item.provider == provider:
+                row.model = item.model
+                row.fallback_model = None
+                row.base_url = item.base_url
+                row.encrypted_api_key = encrypt_secret(item.api_key)
+                row.dimensions = item.dimensions
 
     def list_providers(self) -> ProvidersResponse:
         return ProvidersResponse(
@@ -213,7 +295,9 @@ class ProviderConfigService:
             config.model = payload.model
         if payload.dimensions is not None:
             if payload.dimensions <= 0:
-                raise ValueError("dimensions must be greater than 0")
+                raise InvalidProviderConfigurationError(
+                    "dimensions must be greater than 0"
+                )
             config.dimensions = payload.dimensions
         if payload.base_url is not None:
             config.base_url = payload.base_url
@@ -226,11 +310,124 @@ class ProviderConfigService:
         await self._save_all_embeddings(db)
         return self.current_config().embeddings
 
+    async def synced_list_providers(self, db: AsyncSession) -> ProvidersResponse:
+        await self.load_from_db(db)
+        return self.list_providers()
+
+    async def synced_current_config(self, db: AsyncSession) -> ProviderConfigResponse:
+        await self.load_from_db(db)
+        return self.current_config()
+
+    async def synced_update_chat(
+        self,
+        db: AsyncSession,
+        payload: ChatProviderConfigUpdate,
+    ) -> ChatProviderConfigResponse:
+        await self.load_from_db(db)
+        return await self.update_chat(db, payload)
+
+    async def synced_update_embeddings(
+        self,
+        db: AsyncSession,
+        payload: EmbeddingProviderConfigUpdate,
+    ) -> EmbeddingProviderConfigResponse:
+        await self.load_from_db(db)
+        return await self.update_embeddings(db, payload)
+
+    async def check_chat_health(
+        self,
+        db: AsyncSession,
+        *,
+        provider: ChatProvider,
+        model: str | None = None,
+    ) -> ProviderHealthResponse:
+        from app.services.ai import AIService
+
+        await self.load_from_db(db)
+        config = self.chat_configs[provider]
+        model_name = model or config.model
+        service = AIService(
+            provider=provider,
+            model=model_name,
+            fallback_model=config.fallback_model,
+            base_url=config.base_url,
+            api_key=config.api_key,
+        )
+
+        started = perf_counter()
+        try:
+            await service.generate_chat_response(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": "Health check. Reply with ok.",
+                    }
+                ],
+                model=model_name,
+            )
+            healthy = True
+            message = "Provider responded."
+        except Exception as exc:
+            healthy = False
+            message = str(exc)
+
+        return ProviderHealthResponse(
+            provider=provider.value,
+            kind=CHAT_KIND,
+            model=model_name,
+            healthy=healthy,
+            message=message,
+            latency_ms=self._elapsed_ms(started),
+        )
+
+    async def check_embedding_health(
+        self,
+        db: AsyncSession,
+        *,
+        provider: EmbeddingProvider,
+        model: str | None = None,
+        dimensions: int | None = None,
+    ) -> ProviderHealthResponse:
+        from app.services.embedding import EmbeddingService
+
+        await self.load_from_db(db)
+        config = self.embedding_configs[provider]
+        model_name = model or config.model
+
+        try:
+            service = EmbeddingService(
+                provider=provider,
+                model_name=model_name,
+                dimensions=dimensions if dimensions is not None else config.dimensions,
+                base_url=config.base_url,
+                api_key=config.api_key,
+            )
+        except ValueError as exc:
+            raise InvalidProviderConfigurationError(str(exc)) from exc
+
+        started = perf_counter()
+        try:
+            await service.embed_text("health check")
+            healthy = True
+            message = "Provider responded."
+        except Exception as exc:
+            healthy = False
+            message = str(exc)
+
+        return ProviderHealthResponse(
+            provider=provider.value,
+            kind=EMBEDDING_KIND,
+            model=model_name,
+            healthy=healthy,
+            message=message,
+            latency_ms=self._elapsed_ms(started),
+        )
+
     async def _save_all_chat(self, db: AsyncSession) -> None:
         for config in self.chat_configs.values():
             row = await self._get_row(db, CHAT_KIND, config.provider.value)
             if not row:
-                db.add(self._chat_row(config))
+                await self.provider_configs.add(db, self._chat_row(config))
             else:
                 row.model = config.model
                 row.fallback_model = config.fallback_model
@@ -239,13 +436,13 @@ class ProviderConfigService:
                 row.active = config.active
                 row.dimensions = None
 
-        await db.commit()
+        await self.provider_configs.commit(db)
 
     async def _save_all_embeddings(self, db: AsyncSession) -> None:
         for config in self.embedding_configs.values():
             row = await self._get_row(db, EMBEDDING_KIND, config.provider.value)
             if not row:
-                db.add(self._embedding_row(config))
+                await self.provider_configs.add(db, self._embedding_row(config))
             else:
                 row.model = config.model
                 row.fallback_model = None
@@ -254,7 +451,7 @@ class ProviderConfigService:
                 row.active = config.active
                 row.dimensions = config.dimensions
 
-        await db.commit()
+        await self.provider_configs.commit(db)
 
     async def _get_row(
         self,
@@ -262,13 +459,7 @@ class ProviderConfigService:
         kind: str,
         provider: str,
     ) -> ProviderConfig | None:
-        result = await db.execute(
-            select(ProviderConfig).where(
-                ProviderConfig.kind == kind,
-                ProviderConfig.provider == provider,
-            )
-        )
-        return result.scalar_one_or_none()
+        return await self.provider_configs.get(db, kind, provider)
 
     def _chat_row(self, config: ChatProviderConfigState) -> ProviderConfig:
         return ProviderConfig(
@@ -297,21 +488,50 @@ class ProviderConfigService:
     def _default_chat_base_url(self, provider: ChatProvider) -> str:
         defaults = {
             # ChatProvider.OLLAMA: settings.CHAT_BASE_URL,
-            ChatProvider.OLLAMA: "http://localhost:11434",
+            ChatProvider.OLLAMA: "http://ollama.ai-platform.internal:11434",
             ChatProvider.OPENROUTER: "https://openrouter.ai/api/v1",
             ChatProvider.GROQ: "https://api.groq.com/openai/v1",
             ChatProvider.GEMINI: "https://generativelanguage.googleapis.com/v1beta",
         }
         return defaults[provider]
 
+    def _settings_chat_base_url(self, provider: ChatProvider) -> str:
+        if (
+            provider == ChatProvider.OLLAMA
+            or settings.CHAT_BASE_URL != "http://ollama.ai-platform.internal:11434"
+        ):
+            return settings.CHAT_BASE_URL
+        return self._default_chat_base_url(provider)
+
     def _default_embedding_base_url(self, provider: EmbeddingProvider) -> str:
         defaults = {
-            # EmbeddingProvider.OLLAMA: settings.EMBEDDING_BASE_URL,
-            EmbeddingProvider.OLLAMA: "http://localhost:11434",
+            EmbeddingProvider.OLLAMA: "http://ollama.ai-platform.internal:11434",
             EmbeddingProvider.OPENROUTER: "https://openrouter.ai/api/v1",
             EmbeddingProvider.GEMINI: "https://generativelanguage.googleapis.com/v1beta",
         }
         return defaults[provider]
+
+    def _settings_embedding_base_url(self, provider: EmbeddingProvider) -> str:
+        if (
+            provider == EmbeddingProvider.OLLAMA
+            or settings.EMBEDDING_BASE_URL != "http://ollama.ai-platform.internal:11434"
+        ):
+            return settings.EMBEDDING_BASE_URL
+        return self._default_embedding_base_url(provider)
+
+    def _parse_chain(self, value: str, enum_type):
+        providers = []
+        seen = set()
+        for item in value.split(","):
+            name = item.strip().lower()
+            if not name or name in seen:
+                continue
+            providers.append(enum_type(name))
+            seen.add(name)
+        return providers
+
+    def _elapsed_ms(self, started: float) -> int:
+        return int((perf_counter() - started) * 1000)
 
 
 provider_config = ProviderConfigService()
