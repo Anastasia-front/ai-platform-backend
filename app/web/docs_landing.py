@@ -77,6 +77,7 @@ def render_docs_landing(
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <title>{escape(api_title)} API Documentation</title>
     <style>
       :root {{
@@ -86,8 +87,9 @@ def render_docs_landing(
         --text: #18202f;
         --muted: #5e6878;
         --line: #d9dee8;
-        --accent: #1769e0;
-        --accent-strong: #0d4fad;
+        --accent: #0ea5e9;
+        --accent-strong: #0ea5e9;
+        --eyebrow:#ea7130;
         --shadow: 0 18px 45px rgba(24, 32, 47, 0.08);
       }}
 
@@ -117,7 +119,7 @@ def render_docs_landing(
 
       .eyebrow {{
         margin: 0;
-        color: var(--accent-strong);
+        color: var(--eyebrow);
         font-size: 0.84rem;
         font-weight: 700;
         text-transform: uppercase;
@@ -125,7 +127,6 @@ def render_docs_landing(
 
       h1 {{
         margin: 0;
-        max-width: 780px;
         font-size: clamp(2.25rem, 7vw, 4.75rem);
         line-height: 0.98;
         letter-spacing: 0;
@@ -208,7 +209,7 @@ def render_docs_landing(
       }}
 
       .card-link:focus-visible {{
-        outline: 3px solid rgba(23, 105, 224, 0.35);
+        outline: 3px solid rgba(14, 165, 233, 0.35);
         outline-offset: 3px;
       }}
 
@@ -227,11 +228,11 @@ def render_docs_landing(
   <body>
     <main>
       <section class="intro" aria-labelledby="page-title">
-        <p class="eyebrow">API documentation</p>
+        <p class="eyebrow">documentation</p>
         <h1 id="page-title">{escape(api_title)} API</h1>
         <p class="subtitle">{escape(description)}</p>
         <ul class="metadata" aria-label="API metadata">
-          <li>Title: {escape(api_title)}</li>
+          <li>Framework: {escape('FastAPI')}</li>
           <li>Version: {escape(api_version)}</li>
         </ul>
       </section>
