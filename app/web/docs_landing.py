@@ -1,10 +1,12 @@
 from html import escape
+from pathlib import Path
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
 FRONTEND_URL = "https://ai-automation-platform.com"
 GITHUB_REPOSITORY_URL = "https://github.com/Anastasia-front/ai-platform-backend"
+FAVICON_ICO_PATH = Path(__file__).resolve().parents[2] / "static" / "favicon.ico"
 
 router = APIRouter()
 
@@ -32,7 +34,7 @@ def _resource_card(title: str, description: str, href: str, label: str) -> str:
 def _docs_sections() -> str:
     return """
       <section class="content-section" aria-labelledby="overview-title">
-        <p class="eyebrow">brief info</p>
+        <p id="eyebrow">brief info</p>
         <h2 id="overview-title">Overview</h2>
         <p>
           The backend is a FastAPI service for an AI automation platform. It exposes authenticated
@@ -48,7 +50,7 @@ def _docs_sections() -> str:
       </section>
 
       <section class="content-section" aria-labelledby="architecture-title">
-        <p class="eyebrow">main flows</p>
+        <p id="eyebrow">main flows</p>
         <h2 id="architecture-title">Architecture</h2>
         <div class="diagram-grid">
           <article>
@@ -78,6 +80,16 @@ def _docs_sections() -> str:
 -> document / embedding / workflow service
 -> PostgreSQL status and result</pre>
           </article>
+          <article>
+            <h3>Operations and configuration path</h3>
+            <pre>Deployment / runtime
+-> environment variables / AWS SSM parameters
+-> provider configuration seed and database load
+-> Redis + PostgreSQL + storage service
+-> FastAPI lifespan recovery
+-> Nginx docs/static assets
+-> health, OpenAPI and docs landing page</pre>
+          </article>
         </div>
         <ul class="compact-list">
           <li><strong>Data persistence:</strong> PostgreSQL through async SQLAlchemy; Alembic records schema changes. The Terraform RDS module provisions PostgreSQL 15, and Docker Compose uses pgvector PostgreSQL 17 for local containers.</li>
@@ -89,7 +101,7 @@ def _docs_sections() -> str:
       </section>
 
       <section class="content-section" aria-labelledby="api-title">
-        <p class="eyebrow">visual summary</p>
+        <p id="eyebrow">visual summary</p>
         <h2 id="api-title">API Inventory</h2>
         <p>
           Route groups are included
@@ -118,7 +130,7 @@ def _docs_sections() -> str:
       </section>
 
       <section class="content-section" aria-labelledby="limits-title">
-        <p class="eyebrow">small restrictions</p>
+        <p id="eyebrow">small restrictions</p>
         <h2 id="limits-title">Rate Limits and Operational Limits</h2>
         <h3>Enforced limits</h3>
         <ul class="compact-list">
@@ -133,7 +145,7 @@ def _docs_sections() -> str:
       </section>
 
       <section class="content-section" aria-labelledby="evolution-title">
-        <p class="eyebrow">project evolution</p>
+        <p id="eyebrow">project evolution</p>
         <h2 id="evolution-title">Changelog</h2>
         <p>The entries below are repository-history milestones, not official product versions.</p>
         <ol class="timeline">
@@ -155,7 +167,9 @@ def render_docs_landing(
     api_version: str,
     api_description: str | None,
 ) -> str:
-    description = api_description or "Developer documentation and service resources"
+    description = api_description or (
+        "API documentation, architecture overview, operational limits and service resources."
+    )
     cards = "\n".join(
         [
             _resource_card(
@@ -197,6 +211,7 @@ def render_docs_landing(
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <link rel="shortcut icon" href="/favicon.ico">
     <title>{escape(api_title)} API Documentation</title>
@@ -238,7 +253,7 @@ def render_docs_landing(
         margin-bottom: 34px;
       }}
 
-      .eyebrow {{
+      #eyebrow {{
         margin: 0;
         color: var(--eyebrow);
         font-size: 0.84rem;
@@ -540,7 +555,7 @@ def render_docs_landing(
   <body>
     <main>
       <section class="intro" aria-labelledby="page-title">
-        <p class="eyebrow">documentation</p>
+        <p id="eyebrow">documentation</p>
         <h1 id="page-title">{escape(api_title)} API</h1>
         <p class="subtitle">{escape(description)}</p>
         <div class="metadata-row">
@@ -586,5 +601,5 @@ async def legacy_docs_redirect() -> RedirectResponse:
 
 
 @router.get("/favicon.ico", include_in_schema=False)
-async def favicon_redirect() -> RedirectResponse:
-    return RedirectResponse(url="/static/favicon.svg", status_code=307)
+async def favicon() -> FileResponse:
+    return FileResponse(FAVICON_ICO_PATH, media_type="image/x-icon")

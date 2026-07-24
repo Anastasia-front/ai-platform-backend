@@ -28,8 +28,12 @@ def test_docs_landing_returns_html_with_resource_links():
     assert "/health" in html
     assert "https://ai-automation-platform.com" in html
     assert GITHUB_REPOSITORY_URL in html
+    assert '<link rel="icon" type="image/x-icon" href="/favicon.ico">' in html
     assert '<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">' in html
     assert '<link rel="shortcut icon" href="/favicon.ico">' in html
+    assert "API documentation, architecture overview, operational limits" in html
+    assert "Operations and configuration path" in html
+    assert "environment variables / AWS SSM parameters" in html
     assert '<summary>Sections</summary>' in html
     assert 'href="#overview-title"' in html
     assert 'href="#architecture-title"' in html
@@ -73,11 +77,12 @@ def test_legacy_docs_redirects_to_swagger():
     assert response.headers["location"] == "/swagger"
 
 
-def test_favicon_ico_redirects_to_static_svg():
-    response = client.get("/favicon.ico", follow_redirects=False)
+def test_favicon_ico_is_available():
+    response = client.get("/favicon.ico")
 
-    assert response.status_code == 307
-    assert response.headers["location"] == "/static/favicon.svg"
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("image/x-icon")
+    assert response.content.startswith(b"\x00\x00\x01\x00")
 
 
 def test_static_favicon_svg_is_available():
