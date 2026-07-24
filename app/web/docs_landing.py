@@ -78,6 +78,7 @@ def render_docs_landing(
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="shortcut icon" href="/favicon.ico">
     <title>{escape(api_title)} API Documentation</title>
     <style>
       :root {{
@@ -258,3 +259,8 @@ async def docs_landing(request: Request) -> HTMLResponse:
 @router.get("/docs", include_in_schema=False)
 async def legacy_docs_redirect() -> RedirectResponse:
     return RedirectResponse(url="/swagger", status_code=307)
+
+
+@router.get("/favicon.ico", include_in_schema=False)
+async def favicon_redirect() -> RedirectResponse:
+    return RedirectResponse(url="/static/favicon.svg", status_code=307)

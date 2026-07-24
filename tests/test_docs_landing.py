@@ -12,7 +12,6 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.web.docs_landing import GITHUB_REPOSITORY_URL
 
-
 client = TestClient(app)
 
 
@@ -29,6 +28,8 @@ def test_docs_landing_returns_html_with_resource_links():
     assert "/health" in html
     assert "https://ai-automation-platform.com" in html
     assert GITHUB_REPOSITORY_URL in html
+    assert '<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">' in html
+    assert '<link rel="shortcut icon" href="/favicon.ico">' in html
 
 
 def test_swagger_ui_is_available_at_swagger():
@@ -64,6 +65,21 @@ def test_legacy_docs_redirects_to_swagger():
 
     assert response.status_code == 307
     assert response.headers["location"] == "/swagger"
+
+
+def test_favicon_ico_redirects_to_static_svg():
+    response = client.get("/favicon.ico", follow_redirects=False)
+
+    assert response.status_code == 307
+    assert response.headers["location"] == "/static/favicon.svg"
+
+
+def test_static_favicon_svg_is_available():
+    response = client.get("/static/favicon.svg")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("image/svg+xml")
+    assert "<svg" in response.text
 
 
 def test_docs_landing_and_redirect_are_not_in_openapi_schema():
