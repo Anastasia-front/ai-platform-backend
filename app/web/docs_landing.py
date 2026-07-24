@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
 FRONTEND_URL = "https://ai-automation-platform.com"
 GITHUB_REPOSITORY_URL = "https://github.com/Anastasia-front/ai-platform-backend"
-FAVICON_ICO_PATH = Path(__file__).resolve().parents[2] / "static" / "favicon.ico"
+FAVICON_SVG_PATH = Path(__file__).resolve().parents[2] / "static" / "favicon.svg"
 
 router = APIRouter()
 
@@ -54,7 +54,7 @@ def _docs_sections() -> str:
         <h2 id="architecture-title">Architecture</h2>
         <div class="diagram-grid">
           <article>
-            <h3>Public request path</h3>
+            <h4>Public request path</h4>
             <pre>Client
 -> Cloudflare / DNS
 -> Nginx :443 for docs.ai-automation-platform.com
@@ -62,7 +62,7 @@ def _docs_sections() -> str:
 -> router / service / database or provider</pre>
           </article>
           <article>
-            <h3>Synchronous application path</h3>
+            <h4>Synchronous application path</h4>
             <pre>FastAPI route
 -> dependency ownership check
 -> service layer
@@ -71,7 +71,7 @@ def _docs_sections() -> str:
 -> JSON / SSE response</pre>
           </article>
           <article>
-            <h3>Asynchronous execution path</h3>
+            <h4>Asynchronous execution path</h4>
             <pre>FastAPI route
 -> persisted queued record
 -> Celery task
@@ -81,7 +81,7 @@ def _docs_sections() -> str:
 -> PostgreSQL status and result</pre>
           </article>
           <article>
-            <h3>Operations and configuration path</h3>
+            <h4>Operations and configuration path</h4>
             <pre>Deployment / runtime
 -> environment variables / AWS SSM parameters
 -> provider configuration seed and database load
@@ -211,9 +211,7 @@ def render_docs_landing(
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-    <link rel="shortcut icon" href="/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
     <title>{escape(api_title)} API Documentation</title>
     <style>
       :root {{
@@ -270,7 +268,6 @@ def render_docs_landing(
 
       .subtitle {{
         margin: 0;
-        max-width: 680px;
         color: var(--muted);
         font-size: 1.16rem;
         line-height: 1.6;
@@ -452,6 +449,11 @@ def render_docs_landing(
         font-size: 1rem;
       }}
 
+      .content-section h4 {{
+        margin: 0 0 12px;
+        font-size: 1.25rem;
+      }}
+
       .facts-grid,
       .diagram-grid {{
         display: grid;
@@ -600,6 +602,12 @@ async def legacy_docs_redirect() -> RedirectResponse:
     return RedirectResponse(url="/swagger", status_code=307)
 
 
-@router.get("/favicon.ico", include_in_schema=False)
-async def favicon() -> FileResponse:
-    return FileResponse(FAVICON_ICO_PATH, media_type="image/x-icon")
+@router.get("/favicon.svg", include_in_schema=False)
+async def favicon_svg() -> FileResponse:
+    return FileResponse(
+        FAVICON_SVG_PATH,
+        media_type="image/svg+xml",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+    )

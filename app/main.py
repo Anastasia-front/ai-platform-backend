@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AI Automation Platform",
     description=(
-        "FastAPI backend for AI workflow automation, document processing, and multi-provider LLM integration."
+        "Backend for AI workflow automation, document processing, and multi-provider LLM integration."
     ),
     lifespan=lifespan,
     docs_url="/swagger",
